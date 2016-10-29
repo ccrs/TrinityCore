@@ -161,7 +161,7 @@ DamageInfo::DamageInfo(SpellNonMeleeDamage const& spellNonMeleeDamage, DamageEff
 
 void DamageInfo::ModifyDamage(int32 amount)
 {
-    amount = std::min(amount, int32(GetDamage()));
+    amount = std::max(amount, -static_cast<int32>(GetDamage()));
     m_damage += amount;
 }
 
@@ -2890,8 +2890,8 @@ float Unit::GetUnitBlockChance(WeaponAttackType attType, Unit const* victim) con
 float Unit::GetUnitCriticalChance(WeaponAttackType attackType, Unit const* victim) const
 {
     int32 const attackerWeaponSkill = GetWeaponSkillValue(attackType, victim);
-    int32 const victimMaxSkillValueForLevel = victim->GetMaxSkillValueForLevel(this);
-    int32 const skillDiff = victimMaxSkillValueForLevel - attackerWeaponSkill;
+    int32 const victimDefenseSkill = victim->GetDefenseSkillValue(this);
+    int32 const skillDiff = victimDefenseSkill - attackerWeaponSkill;
 
     float chance = 0.0f;
     float skillBonus = 0.0f;
@@ -10947,6 +10947,21 @@ void Unit::TriggerAurasProcOnEvent(Unit* actionTarget, uint32 typeMaskActor, uin
     {
         AuraApplicationProcContainer myAurasTriggeringProc;
         GetProcAurasTriggeredOnEvent(myAurasTriggeringProc, nullptr, myProcEventInfo);
+
+        // needed for example for Cobra Strikes, pet does the attack, but aura is on owner
+        if (Player* modOwner = GetSpellModOwner())
+        {
+            if (modOwner != this && spell)
+            {
+                AuraApplicationList modAuras;
+                for (auto itr = modOwner->GetAppliedAuras().begin(); itr != modOwner->GetAppliedAuras().end(); ++itr)
+                {
+                    if (spell->m_appliedMods.count(itr->second->GetBase()) != 0)
+                        modAuras.push_back(itr->second);
+                }
+                modOwner->GetProcAurasTriggeredOnEvent(myAurasTriggeringProc, &modAuras, myProcEventInfo);
+            }
+        }
         TriggerAurasProcOnEvent(myProcEventInfo, myAurasTriggeringProc);
     }
 

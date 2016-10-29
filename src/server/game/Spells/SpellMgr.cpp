@@ -535,7 +535,7 @@ bool SpellMgr::CanSpellTriggerProcOnEvent(SpellProcEntry const& procEntry, ProcE
         return false;
 
     // check spell family name/flags (if set) for spells
-    if (eventInfo.GetTypeMask() & (PERIODIC_PROC_FLAG_MASK | SPELL_PROC_FLAG_MASK | PROC_FLAG_DONE_TRAP_ACTIVATION))
+    if (eventInfo.GetTypeMask() & (PERIODIC_PROC_FLAG_MASK | SPELL_PROC_FLAG_MASK))
     {
         SpellInfo const* eventSpellInfo = eventInfo.GetSpellInfo();
 
@@ -2754,10 +2754,6 @@ void SpellMgr::LoadSpellInfoCorrections()
                 break;
             case 44544: // Fingers of Frost
                 spellInfo->Effects[EFFECT_0].SpellClassMask = flag96(685904631, 1151048, 0);
-                break;
-            case 53257: // Cobra Strikes
-                spellInfo->ProcCharges = 2;
-                spellInfo->StackAmount = 0;
                 break;
             case 49224: // Magic Suppression - DK
             case 49610: // Magic Suppression - DK
