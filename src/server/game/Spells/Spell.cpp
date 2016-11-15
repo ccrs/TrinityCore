@@ -2531,7 +2531,7 @@ SpellMissInfo Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool scaleA
         return SPELL_MISS_EVADE;
 
     // For delayed spells immunity may be applied between missile launch and hit - check immunity for that case
-    if (m_spellInfo->Speed && (unit->IsImmunedToDamage(m_spellInfo) || unit->IsImmunedToSpell(m_spellInfo)))
+    if (m_spellInfo->Speed && unit->IsImmunedToSpell(m_spellInfo))
         return SPELL_MISS_IMMUNE;
 
     // disable effects to which unit is immune
@@ -5768,8 +5768,12 @@ SpellCastResult Spell::CheckCasterAuras(uint32* param1) const
 
     // Get unit state
     uint32 const unitflag = m_caster->GetUInt32Value(UNIT_FIELD_FLAGS);
-    if (m_caster->GetCharmerGUID() && CheckCasterNotImmunedCharmAuras(param1))
-        result = SPELL_FAILED_CHARMED;
+    if (m_caster->GetCharmerGUID())
+    {
+        if (Unit* charmer = m_caster->GetCharmer())
+            if (charmer->GetUnitBeingMoved() != m_caster && CheckCasterNotImmunedCharmAuras(param1))
+                result = SPELL_FAILED_CHARMED;
+    }
     else if (unitflag & UNIT_FLAG_STUNNED && !usableWhileStunned && CheckCasterNotImmunedStunAuras(param1))
         result = SPELL_FAILED_STUNNED;
     else if (unitflag & UNIT_FLAG_SILENCED && m_spellInfo->PreventionType == SPELL_PREVENTION_TYPE_SILENCE && CheckCasterNotImmunedSilenceAuras(param1))
