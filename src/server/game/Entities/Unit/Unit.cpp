@@ -7874,6 +7874,9 @@ bool Unit::IsImmunedToDamage(SpellInfo const* spellInfo) const
     if (!spellInfo)
         return false;
 
+    if (spellInfo->HasAttribute(SPELL_ATTR3_IGNORE_HIT_RESULT))
+        return false;
+
     if (spellInfo->HasAttribute(SPELL_ATTR1_UNAFFECTED_BY_SCHOOL_IMMUNE) || spellInfo->HasAttribute(SPELL_ATTR2_UNAFFECTED_BY_AURA_SCHOOL_IMMUNE))
         return false;
 
@@ -10885,7 +10888,7 @@ void Unit::GetProcAurasTriggeredOnEvent(AuraApplicationProcContainer& aurasTrigg
         for (AuraApplication* aurApp : *procAuras)
         {
             ASSERT(aurApp->GetTarget() == this);
-            if (uint8 procEffectMask = aurApp->GetBase()->IsProcTriggeredOnEvent(aurApp, eventInfo, now))
+            if (uint8 procEffectMask = aurApp->GetBase()->GetProcEffectMask(aurApp, eventInfo, now))
             {
                 aurApp->GetBase()->PrepareProcToTrigger(aurApp, eventInfo, now);
                 aurasTriggeringProc.emplace_back(procEffectMask, aurApp);
@@ -10897,7 +10900,7 @@ void Unit::GetProcAurasTriggeredOnEvent(AuraApplicationProcContainer& aurasTrigg
     {
         for (AuraApplicationMap::iterator itr = GetAppliedAuras().begin(); itr != GetAppliedAuras().end(); ++itr)
         {
-            if (uint8 procEffectMask = itr->second->GetBase()->IsProcTriggeredOnEvent(itr->second, eventInfo, now))
+            if (uint8 procEffectMask = itr->second->GetBase()->GetProcEffectMask(itr->second, eventInfo, now))
             {
                 itr->second->GetBase()->PrepareProcToTrigger(itr->second, eventInfo, now);
                 aurasTriggeringProc.emplace_back(procEffectMask, itr->second);
