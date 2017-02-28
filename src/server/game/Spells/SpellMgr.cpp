@@ -1945,8 +1945,8 @@ void SpellMgr::LoadSpellEnchantProcData()
 
     mSpellEnchantProcEventMap.clear();                             // need for reload case
 
-    //                                                  0         1           2         3
-    QueryResult result = WorldDatabase.Query("SELECT entry, customChance, PPMChance, procEx FROM spell_enchant_proc_data");
+    //                                                       0       1               2        3               4
+    QueryResult result = WorldDatabase.Query("SELECT EnchantID, Chance, ProcsPerMinute, HitMask, AttributesMask FROM spell_enchant_proc_data");
     if (!result)
     {
         TC_LOG_INFO("server.loading", ">> Loaded 0 spell enchant proc event conditions. DB table `spell_enchant_proc_data` is empty.");
@@ -1968,10 +1968,10 @@ void SpellMgr::LoadSpellEnchantProcData()
         }
 
         SpellEnchantProcEntry spe;
-
-        spe.customChance = fields[1].GetUInt32();
-        spe.PPMChance = fields[2].GetFloat();
-        spe.procEx = fields[3].GetUInt32();
+        spe.Chance = fields[1].GetFloat();
+        spe.ProcsPerMinute = fields[2].GetFloat();
+        spe.HitMask = fields[3].GetUInt32();
+        spe.AttributesMask = fields[4].GetUInt32();
 
         mSpellEnchantProcEventMap[enchantId] = spe;
 
@@ -2815,6 +2815,13 @@ void SpellMgr::LoadSpellInfoCorrections()
             case 3137:  // Abolish Poison Effect
                 spellInfo->Effects[EFFECT_0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
                 spellInfo->Effects[EFFECT_0].TargetB = SpellImplicitTargetInfo();
+                break;
+            case 56690: // Thrust Spear
+            case 60586: // Mighty Spear Thrust
+            case 60776: // Claw Swipe
+            case 60881: // Fatal Strike
+            case 60864: // Jaws of Death
+                spellInfo->AttributesEx4 |= SPELL_ATTR4_FIXED_DAMAGE;
                 break;
             case 31344: // Howl of Azgalor
                 spellInfo->Effects[EFFECT_0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_100_YARDS); // 100yards instead of 50000?!
@@ -3782,6 +3789,8 @@ void SpellMgr::LoadSpellInfoCorrections()
             case 46099: // Brutal Gladiator's Totem of the Third Wind
             case 46705: // Honorless Target
             case 49883: // Flames
+            case 50365: // Improved Blood Presence (Rank 1)
+            case 50371: // Improved Blood Presence (Rank 2)
             case 50655: // Frost Cut
             case 50995: // Empowered Blood Presence (Rank 1)
             case 55482: // Fire Breath (Rank 3)

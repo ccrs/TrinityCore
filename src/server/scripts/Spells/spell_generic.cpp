@@ -2176,6 +2176,47 @@ class spell_gen_mounted_charge: public SpellScriptLoader
         }
 };
 
+enum MossCoveredFeet
+{
+    SPELL_FALL_DOWN = 6869
+};
+
+// 6870 Moss Covered Feet
+// 31399 Moss Covered Feet
+class spell_gen_moss_covered_feet : public SpellScriptLoader
+{
+    public:
+        spell_gen_moss_covered_feet() : SpellScriptLoader("spell_gen_moss_covered_feet") { }
+
+        class spell_gen_moss_covered_feet_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_gen_moss_covered_feet_AuraScript);
+
+            bool Validate(SpellInfo const* /*spellInfo*/) override
+            {
+                if (!sSpellMgr->GetSpellInfo(SPELL_FALL_DOWN))
+                    return false;
+                return true;
+            }
+
+            void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
+            {
+                PreventDefaultAction();
+                eventInfo.GetActionTarget()->CastSpell((Unit*)nullptr, SPELL_FALL_DOWN, true, nullptr, aurEff);
+            }
+
+            void Register() override
+            {
+                OnEffectProc += AuraEffectProcFn(spell_gen_moss_covered_feet_AuraScript::HandleProc, EFFECT_0, SPELL_AURA_DUMMY);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_gen_moss_covered_feet_AuraScript();
+        }
+};
+
 enum Netherbloom
 {
     SPELL_NETHERBLOOM_POLLEN_1      = 28703
@@ -2795,6 +2836,32 @@ class spell_gen_proc_below_pct_damaged : public SpellScriptLoader
         AuraScript* GetAuraScript() const override
         {
             return new spell_gen_proc_below_pct_damaged_AuraScript();
+        }
+};
+
+class spell_gen_proc_charge_drop_only : public SpellScriptLoader
+{
+    public:
+        spell_gen_proc_charge_drop_only() : SpellScriptLoader("spell_gen_proc_charge_drop_only") { }
+
+        class spell_gen_proc_charge_drop_only_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_gen_proc_charge_drop_only_AuraScript);
+
+            void HandleChargeDrop(ProcEventInfo& /*eventInfo*/)
+            {
+                PreventDefaultAction();
+            }
+
+            void Register() override
+            {
+                OnProc += AuraProcFn(spell_gen_proc_charge_drop_only_AuraScript::HandleChargeDrop);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_gen_proc_charge_drop_only_AuraScript();
         }
 };
 
@@ -4475,6 +4542,7 @@ void AddSC_generic_spell_scripts()
     new spell_gen_mount("spell_celestial_steed", 0, SPELL_CELESTIAL_STEED_60, SPELL_CELESTIAL_STEED_100, SPELL_CELESTIAL_STEED_150, SPELL_CELESTIAL_STEED_280, SPELL_CELESTIAL_STEED_310);
     new spell_gen_mount("spell_x53_touring_rocket", 0, 0, 0, SPELL_X53_TOURING_ROCKET_150, SPELL_X53_TOURING_ROCKET_280, SPELL_X53_TOURING_ROCKET_310);
     new spell_gen_mounted_charge();
+    new spell_gen_moss_covered_feet();
     new spell_gen_netherbloom();
     new spell_gen_nightmare_vine();
     new spell_gen_obsidian_armor();
@@ -4488,6 +4556,7 @@ void AddSC_generic_spell_scripts()
     new spell_gen_proc_below_pct_damaged("spell_item_corpse_tongue_coin_heroic");
     new spell_gen_proc_below_pct_damaged("spell_item_petrified_twilight_scale");
     new spell_gen_proc_below_pct_damaged("spell_item_petrified_twilight_scale_heroic");
+    new spell_gen_proc_charge_drop_only();
     new spell_gen_parachute();
     new spell_gen_pet_summoned();
     new spell_gen_profession_research();
