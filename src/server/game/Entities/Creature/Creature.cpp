@@ -26,6 +26,7 @@
 #include "DatabaseEnv.h"
 #include "Formulas.h"
 #include "GameEventMgr.h"
+#include "GameTime.h"
 #include "GossipDef.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
@@ -2261,7 +2262,7 @@ bool Creature::CanAssistTo(const Unit* u, const Unit* enemy, bool checkfaction /
 
 // use this function to avoid having hostile creatures attack
 // friendlies and other mobs they shouldn't attack
-bool Creature::_IsTargetAcceptable(const Unit* target) const
+bool Creature::_IsTargetAcceptable(Unit const* target) const
 {
     ASSERT(target);
 
@@ -2280,12 +2281,16 @@ bool Creature::_IsTargetAcceptable(const Unit* target) const
             return false;
     }
 
-    const Unit* myVictim = getAttackerForHelper();
-    const Unit* targetVictim = target->getAttackerForHelper();
+    Unit const* targetVictim = target->getAttackerForHelper();
 
     // if I'm already fighting target, or I'm hostile towards the target, the target is acceptable
-    if (myVictim == target || targetVictim == this || IsHostileTo(target))
+    if (GetVictim() == target || IsHostileTo(target))
         return true;
+
+    // a player is targeting me, but I'm not hostile towards it, and not currently attacking it, the target is not acceptable
+    // (players may set their victim from a distance, and doesn't mean we should attack)
+    if (target->GetTypeId() == TYPEID_PLAYER && targetVictim == this)
+        return false;
 
     // if the target's victim is friendly, and the target is neutral, the target is acceptable
     if (targetVictim && IsFriendlyTo(targetVictim))
@@ -2332,7 +2337,7 @@ bool Creature::CanCreatureAttack(Unit const* victim, bool /*force*/) const
             return true;
 
         // don't check distance to home position if recently damaged, this should include taunt auras
-        if (!isWorldBoss() && (GetLastDamagedTime() > sWorld->GetGameTime() || HasAuraType(SPELL_AURA_MOD_TAUNT)))
+        if (!isWorldBoss() && (GetLastDamagedTime() > GameTime::GetGameTime() || HasAuraType(SPELL_AURA_MOD_TAUNT)))
             return true;
     }
 
@@ -3087,7 +3092,7 @@ void Creature::ReleaseFocus(Spell const* focusSpell, bool withDelay)
         ClearUnitState(UNIT_STATE_CANNOT_TURN);
 
     m_focusSpell = nullptr;
-    m_focusDelay = (!IsPet() && withDelay) ? getMSTime() : 0; // don't allow re-target right away to prevent visual bugs
+    m_focusDelay = (!IsPet() && withDelay) ? GameTime::GetGameTimeMS() : 0; // don't allow re-target right away to prevent visual bugs
 }
 
 void Creature::StartPickPocketRefillTimer()
