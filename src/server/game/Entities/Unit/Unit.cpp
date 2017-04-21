@@ -10243,7 +10243,13 @@ void Unit::UpdateDamageDoneMods(WeaponAttackType attackType)
             break;
     }
 
-    float amount = GetTotalAuraModifier(SPELL_AURA_MOD_DAMAGE_DONE, std::bind(&Unit::CheckAttackFitToAuraRequirement, this, attackType, std::placeholders::_1));
+    float amount = GetTotalAuraModifier(SPELL_AURA_MOD_DAMAGE_DONE, [&](AuraEffect const* aurEff) -> bool
+    {
+        if (!(aurEff->GetMiscValue() & SPELL_SCHOOL_MASK_NORMAL))
+            return false;
+
+        return CheckAttackFitToAuraRequirement(attackType, aurEff);
+    });
 
     SetStatFlatModifier(unitMod, TOTAL_VALUE, amount);
 }
@@ -13033,7 +13039,12 @@ float Unit::MeleeSpellMissChance(Unit const* victim, WeaponAttackType attType, i
     if (victim->GetTypeId() == TYPEID_PLAYER)
         missChance += diff > 0 ? diff * 0.04f : diff * 0.02f;
     else
+    {
         missChance += diff > 10 ? 1 + (diff - 10) * 0.4f : diff * 0.1f;
+        float levelFactor = victim->getLevelForTarget(this);
+        if (levelFactor < 10.f)
+            missChance *= (levelFactor / 10.f);
+    }
 
     // Spellmod from SPELLMOD_RESIST_MISS_CHANCE
     float resistMissChance = 100.0f;
