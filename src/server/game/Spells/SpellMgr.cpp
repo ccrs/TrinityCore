@@ -3121,6 +3121,7 @@ void SpellMgr::LoadSpellInfoCorrections()
         47977, // Magic Broom
         48025, // Headless Horseman's Mount
         54729, // Winged Steed of the Ebon Blade
+        58983, // Big Blizzard Bear
         71342, // Big Love Rocket
         72286, // Invincible
         74856, // Blazing Hippogryph
@@ -3729,6 +3730,14 @@ void SpellMgr::LoadSpellInfoCorrections()
         // may be db data bug, or blizz may keep reapplying area auras every update with checking immunity
         // that will be clear if we get more spells with problem like this
         spellInfo->AttributesEx |= SPELL_ATTR1_DISPEL_AURAS_ON_IMMUNITY;
+    });
+
+    // Blizzard (Thorim)
+    ApplySpellFix({ 62576, 62602 }, [](SpellInfo* spellInfo)
+    {
+        // DBC data is wrong for EFFECT_0, it's a different dynobject target than EFFECT_1
+        // Both effects should be shared by the same DynObject
+        spellInfo->Effects[EFFECT_0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_CASTER_LEFT);
     });
 
     // Spinning Up (Mimiron)

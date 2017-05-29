@@ -263,12 +263,12 @@ SpellSchoolMask ProcEventInfo::GetSchoolMask() const
 }
 
 Unit::Unit(bool isWorldObject) :
-    WorldObject(isWorldObject), m_playerMovingMe(NULL), m_lastSanctuaryTime(0),
+    WorldObject(isWorldObject), m_playerMovingMe(nullptr), m_lastSanctuaryTime(0),
     IsAIEnabled(false), NeedChangeAI(false), LastCharmerGUID(),
     m_ControlledByPlayer(false), movespline(new Movement::MoveSpline()),
-    i_AI(NULL), i_disabledAI(NULL), m_AutoRepeatFirstCast(false), m_procDeep(0),
+    i_AI(nullptr), i_disabledAI(nullptr), m_AutoRepeatFirstCast(false), m_procDeep(0),
     m_removedAurasCount(0), i_motionMaster(new MotionMaster(this)), m_regenTimer(0), m_ThreatManager(this),
-    m_vehicle(NULL), m_vehicleKit(NULL), m_unitTypeMask(UNIT_MASK_NONE),
+    m_vehicle(nullptr), m_vehicleKit(nullptr), m_unitTypeMask(UNIT_MASK_NONE),
     m_HostileRefManager(this), m_spellHistory(new SpellHistory(this))
 {
     m_objectType |= TYPEMASK_UNIT;
@@ -353,10 +353,11 @@ Unit::Unit(bool isWorldObject) :
 
     m_serverSideVisibility.SetValue(SERVERSIDE_VISIBILITY_GHOST, GHOST_VISIBILITY_ALIVE);
 
-    _lastLiquid = NULL;
+    _lastLiquid = nullptr;
 
     _oldFactionId = 0;
     _isWalkingBeforeCharm = false;
+    _instantCast = false;
 }
 
 ////////////////////////////////////////////////////////////
@@ -2089,7 +2090,7 @@ void Unit::AttackerStateUpdate(Unit* victim, WeaponAttackType attType, bool extr
         return;                                             // ignore ranged case
 
     if (GetTypeId() == TYPEID_UNIT && !HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
-        SetFacingToObject(victim); // update client side facing to face the target (prevents visual glitches when casting untargeted spells)
+        SetFacingToObject(victim, false); // update client side facing to face the target (prevents visual glitches when casting untargeted spells)
 
     // melee attack spell cast at main hand attack only - no normal melee dmg dealt
     if (attType == BASE_ATTACK && m_currentSpells[CURRENT_MELEE_SPELL] && !extra)
@@ -2137,7 +2138,7 @@ void Unit::FakeAttackerStateUpdate(Unit* victim, WeaponAttackType attType /*= BA
         return;                                             // ignore ranged case
 
     if (GetTypeId() == TYPEID_UNIT && !HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
-        SetFacingToObject(victim); // update client side facing to face the target (prevents visual glitches when casting untargeted spells)
+        SetFacingToObject(victim, false); // update client side facing to face the target (prevents visual glitches when casting untargeted spells)
 
     CalcDamageInfo damageInfo;
     damageInfo.attacker = this;
@@ -3564,7 +3565,14 @@ void Unit::_ApplyAura(AuraApplication * aurApp, uint8 effMask)
 
     // Update target aura state flag
     if (AuraStateType aState = aura->GetSpellInfo()->GetAuraState())
-        ModifyAuraState(aState, true);
+    {
+        uint32 aStateMask = (1 << (aState - 1));
+        // force update so the new caster registers it
+        if ((aStateMask & PER_CASTER_AURA_STATE_MASK) && HasFlag(UNIT_FIELD_AURASTATE, aStateMask))
+            ForceValuesUpdateAtIndex(UNIT_FIELD_AURASTATE);
+        else
+            ModifyAuraState(aState, true);
+    }
 
     if (aurApp->GetRemoveMode())
         return;
@@ -3657,9 +3665,19 @@ void Unit::_UnapplyAura(AuraApplicationMap::iterator &i, AuraRemoveMode removeMo
             ToTotem()->setDeathState(JUST_DIED);
     }
 
-    // Remove aurastates only if were not found
-    if (!auraStateFound)
-        ModifyAuraState(auraState, false);
+    // Remove aurastates only if needed and were not found
+    if (auraState)
+    {
+        if (!auraStateFound)
+            ModifyAuraState(auraState, false);
+        else
+        {
+            // update for casters, some shouldn't 'see' the aura state
+            uint32 aStateMask = (1 << (auraState - 1));
+            if ((aStateMask & PER_CASTER_AURA_STATE_MASK) != 0)
+                ForceValuesUpdateAtIndex(UNIT_FIELD_AURASTATE);
+        }
+    }
 
     aura->HandleAuraSpecificMods(aurApp, caster, false, false);
 
@@ -5554,15 +5572,15 @@ void Unit::setPowerType(Powers new_powertype)
 
 FactionTemplateEntry const* Unit::GetFactionTemplateEntry() const
 {
-    FactionTemplateEntry const* entry = sFactionTemplateStore.LookupEntry(getFaction());
+    FactionTemplateEntry const* entry = sFactionTemplateStore.LookupEntry(GetFaction());
     if (!entry)
     {
         if (Player const* player = ToPlayer())
-            TC_LOG_ERROR("entities.unit", "Player %s has invalid faction (faction template id) #%u", player->GetName().c_str(), getFaction());
+            TC_LOG_ERROR("entities.unit", "Player %s has invalid faction (faction template id) #%u", player->GetName().c_str(), GetFaction());
         else if (Creature const* creature = ToCreature())
-            TC_LOG_ERROR("entities.unit", "Creature (template id: %u) has invalid faction (faction template id) #%u", creature->GetCreatureTemplate()->Entry, getFaction());
+            TC_LOG_ERROR("entities.unit", "Creature (template id: %u) has invalid faction (faction template id) #%u", creature->GetCreatureTemplate()->Entry, GetFaction());
         else
-            TC_LOG_ERROR("entities.unit", "Unit (name=%s, type=%u) has invalid faction (faction template id) #%u", GetName().c_str(), uint32(GetTypeId()), getFaction());
+            TC_LOG_ERROR("entities.unit", "Unit (name=%s, type=%u) has invalid faction (faction template id) #%u", GetName().c_str(), uint32(GetTypeId()), GetFaction());
 
         ABORT();
     }
@@ -7140,15 +7158,10 @@ float Unit::SpellDamagePctDone(Unit* victim, SpellInfo const* spellProto, Damage
             // Fire and Brimstone
             if (spellProto->SpellFamilyFlags[1] & 0x00020040)
             {
-                if (victim->HasAuraState(AURA_STATE_CONFLAGRATE))
+                if (victim->HasAuraState(AURA_STATE_CONFLAGRATE, nullptr, this))
                 {
-                    AuraEffectList const& mDumyAuras = GetAuraEffectsByType(SPELL_AURA_DUMMY);
-                    for (AuraEffectList::const_iterator i = mDumyAuras.begin(); i != mDumyAuras.end(); ++i)
-                        if ((*i)->GetSpellInfo()->SpellIconID == 3173)
-                        {
-                            AddPct(DoneTotalMod, (*i)->GetAmount());
-                            break;
-                        }
+                    if (AuraEffect const* aurEFf = GetDummyAuraEffect(SPELLFAMILY_WARLOCK, 3173, EFFECT_0))
+                        AddPct(DoneTotalMod, aurEFf->GetAmount());
                 }
             }
             // Shadow Bite (15% increase from each dot)
@@ -9411,8 +9424,6 @@ void Unit::setDeathState(DeathState s)
 
     if (s == JUST_DIED)
     {
-        ModifyAuraState(AURA_STATE_HEALTHLESS_20_PERCENT, false);
-        ModifyAuraState(AURA_STATE_HEALTHLESS_35_PERCENT, false);
         // remove aurastates allowing special moves
         ClearAllReactives();
         ClearDiminishings();
@@ -9523,7 +9534,8 @@ void Unit::TauntApply(Unit* taunter)
     if (target && target == taunter)
         return;
 
-    SetInFront(taunter);
+    if (!IsFocusing(nullptr, true))
+        SetInFront(taunter);
     if (creature->IsAIEnabled)
         creature->AI()->AttackStart(taunter);
 
@@ -9562,7 +9574,8 @@ void Unit::TauntFadeOut(Unit* taunter)
 
     if (target && target != taunter)
     {
-        SetInFront(target);
+        if (!IsFocusing(nullptr, true))
+            SetInFront(target);
         if (creature->IsAIEnabled)
             creature->AI()->AttackStart(target);
     }
@@ -9644,7 +9657,7 @@ Unit* Creature::SelectVictim()
 
     if (target && _IsTargetAcceptable(target) && CanCreatureAttack(target))
     {
-        if (!IsFocusing())
+        if (!IsFocusing(nullptr, true))
             SetInFront(target);
         return target;
     }
@@ -9858,7 +9871,7 @@ void Unit::ModSpellCastTime(SpellInfo const* spellInfo, int32 & castTime, Spell*
 
     if (!(spellInfo->HasAttribute(SPELL_ATTR0_ABILITY) || spellInfo->HasAttribute(SPELL_ATTR0_TRADESPELL) || spellInfo->HasAttribute(SPELL_ATTR3_NO_DONE_BONUS)) &&
         ((GetTypeId() == TYPEID_PLAYER && spellInfo->SpellFamilyName) || GetTypeId() == TYPEID_UNIT))
-        castTime = int32(float(castTime) * GetFloatValue(UNIT_MOD_CAST_SPEED));
+        castTime = CanInstantCast() ? 0 : int32(float(castTime) * GetFloatValue(UNIT_MOD_CAST_SPEED));
     else if (spellInfo->HasAttribute(SPELL_ATTR0_REQ_AMMO) && !spellInfo->HasAttribute(SPELL_ATTR2_AUTOREPEAT_FLAG))
         castTime = int32(float(castTime) * m_modAttackSpeedPct[RANGED_ATTACK]);
     else if (spellInfo->SpellVisual[0] == 3881 && HasAura(67556)) // cooking with Chef Hat.
@@ -11304,13 +11317,13 @@ Player* Unit::GetSpellModOwner() const
     if (Player* player = const_cast<Unit*>(this)->ToPlayer())
         return player;
 
-    if (IsPet() || IsTotem())
+    if (HasUnitTypeMask(UNIT_MASK_PET | UNIT_MASK_TOTEM | UNIT_MASK_GUARDIAN))
     {
         if (Unit* owner = GetOwner())
             if (Player* player = owner->ToPlayer())
                 return player;
     }
-    return NULL;
+    return nullptr;
 }
 
 ///----------Pet responses methods-----------------
@@ -11820,26 +11833,6 @@ void Unit::SetContestedPvP(Player* attackedPlayer)
     }
 }
 
-void Unit::AddPetAura(PetAura const* petSpell)
-{
-    if (GetTypeId() != TYPEID_PLAYER)
-        return;
-
-    m_petAuras.insert(petSpell);
-    if (Pet* pet = ToPlayer()->GetPet())
-        pet->CastPetAura(petSpell);
-}
-
-void Unit::RemovePetAura(PetAura const* petSpell)
-{
-    if (GetTypeId() != TYPEID_PLAYER)
-        return;
-
-    m_petAuras.erase(petSpell);
-    if (Pet* pet = ToPlayer()->GetPet())
-        pet->RemoveAurasDueToSpell(petSpell->GetAura(pet->GetEntry()));
-}
-
 Pet* Unit::CreateTamedPetFrom(Creature* creatureTarget, uint32 spell_id)
 {
     if (GetTypeId() != TYPEID_PLAYER)
@@ -11883,7 +11876,7 @@ Pet* Unit::CreateTamedPetFrom(uint32 creatureEntry, uint32 spell_id)
 bool Unit::InitTamedPet(Pet* pet, uint8 level, uint32 spell_id)
 {
     pet->SetCreatorGUID(GetGUID());
-    pet->setFaction(getFaction());
+    pet->SetFaction(GetFaction());
     pet->SetUInt32Value(UNIT_CREATED_BY_SPELL, spell_id);
 
     if (GetTypeId() == TYPEID_PLAYER)
@@ -12519,8 +12512,8 @@ bool Unit::SetCharmedBy(Unit* charmer, CharmType type, AuraApplication const* au
     if (aurApp && aurApp->GetRemoveMode())
         return false;
 
-    _oldFactionId = getFaction();
-    setFaction(charmer->getFaction());
+    _oldFactionId = GetFaction();
+    SetFaction(charmer->GetFaction());
 
     // Set charmed
     charmer->SetCharm(this, true);
@@ -12636,7 +12629,7 @@ void Unit::RemoveCharmedBy(Unit* charmer)
 
     if (_oldFactionId)
     {
-        setFaction(_oldFactionId);
+        SetFaction(_oldFactionId);
         _oldFactionId = 0;
     }
     else
@@ -12728,13 +12721,13 @@ void Unit::RestoreFaction()
         {
             if (Unit* owner = GetOwner())
             {
-                setFaction(owner->getFaction());
+                SetFaction(owner->GetFaction());
                 return;
             }
         }
 
         if (CreatureTemplate const* cinfo = ToCreature()->GetCreatureTemplate())  // normal creature
-            setFaction(cinfo->faction);
+            SetFaction(cinfo->faction);
     }
 }
 
@@ -12822,7 +12815,7 @@ bool Unit::IsInPartyWith(Unit const* unit) const
         (u1->GetTypeId() == TYPEID_PLAYER && u2->GetTypeId() == TYPEID_UNIT && u2->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT))
         return true;
 
-    return u1->GetTypeId() == TYPEID_UNIT && u2->GetTypeId() == TYPEID_UNIT && u1->getFaction() == u2->getFaction();
+    return u1->GetTypeId() == TYPEID_UNIT && u2->GetTypeId() == TYPEID_UNIT && u1->GetFaction() == u2->GetFaction();
 }
 
 bool Unit::IsInRaidWith(Unit const* unit) const
@@ -12841,7 +12834,7 @@ bool Unit::IsInRaidWith(Unit const* unit) const
             (u1->GetTypeId() == TYPEID_PLAYER && u2->GetTypeId() == TYPEID_UNIT && u2->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT))
         return true;
 
-    return u1->GetTypeId() == TYPEID_UNIT && u2->GetTypeId() == TYPEID_UNIT && u1->getFaction() == u2->getFaction();
+    return u1->GetTypeId() == TYPEID_UNIT && u2->GetTypeId() == TYPEID_UNIT && u1->GetFaction() == u2->GetFaction();
 }
 
 void Unit::GetPartyMembers(std::list<Unit*> &TagUnitMap)
@@ -13761,54 +13754,52 @@ void Unit::_ExitVehicle(Position const* exitPosition)
 
 void Unit::BuildMovementPacket(ByteBuffer *data) const
 {
-    *data << uint32(GetUnitMovementFlags());            // movement flags
-    *data << uint16(GetExtraUnitMovementFlags());       // 2.3.0
+    Unit::BuildMovementPacket(Position(GetPositionX(), GetPositionY(), GetPositionZMinusOffset(), GetOrientation()), m_movementInfo.transport.pos, m_movementInfo, data);
+}
+
+void Unit::BuildMovementPacket(Position const& pos, Position const& transportPos, MovementInfo const& movementInfo, ByteBuffer* data)
+{
+    *data << uint32(movementInfo.GetMovementFlags());
+    *data << uint16(movementInfo.GetExtraMovementFlags());
     *data << uint32(GameTime::GetGameTimeMS());         // time / counter
-    *data << GetPositionX();
-    *data << GetPositionY();
-    *data << GetPositionZMinusOffset();
-    *data << GetOrientation();
+    *data << float(pos.GetPositionX());
+    *data << float(pos.GetPositionY());
+    *data << float(pos.GetPositionZ());
+    *data << float(pos.GetOrientation());
 
     // 0x00000200
-    if (GetUnitMovementFlags() & MOVEMENTFLAG_ONTRANSPORT)
+    if (movementInfo.HasMovementFlag(MOVEMENTFLAG_ONTRANSPORT))
     {
-        if (m_vehicle)
-            *data << m_vehicle->GetBase()->GetPackGUID();
-        else if (GetTransport())
-            *data << GetTransport()->GetPackGUID();
-        else
-            *data << (uint8)0;
+        *data << movementInfo.transport.guid.WriteAsPacked();
+        *data << float(transportPos.GetPositionX());
+        *data << float(transportPos.GetPositionY());
+        *data << float(transportPos.GetPositionZ());
+        *data << float(transportPos.GetOrientation());
+        *data << uint32(movementInfo.transport.time);
+        *data << int8(movementInfo.transport.seat);
 
-        *data << float (GetTransOffsetX());
-        *data << float (GetTransOffsetY());
-        *data << float (GetTransOffsetZ());
-        *data << float (GetTransOffsetO());
-        *data << uint32(GetTransTime());
-        *data << uint8 (GetTransSeat());
-
-        if (GetExtraUnitMovementFlags() & MOVEMENTFLAG2_INTERPOLATED_MOVEMENT)
-            *data << uint32(m_movementInfo.transport.time2);
+        if (movementInfo.HasExtraMovementFlag(MOVEMENTFLAG2_INTERPOLATED_MOVEMENT))
+            *data << uint32(movementInfo.transport.time2);
     }
 
     // 0x02200000
-    if ((GetUnitMovementFlags() & (MOVEMENTFLAG_SWIMMING | MOVEMENTFLAG_FLYING))
-        || (m_movementInfo.flags2 & MOVEMENTFLAG2_ALWAYS_ALLOW_PITCHING))
-        *data << (float)m_movementInfo.pitch;
+    if ((movementInfo.HasMovementFlag(MOVEMENTFLAG_SWIMMING | MOVEMENTFLAG_FLYING)) || (movementInfo.HasExtraMovementFlag(MOVEMENTFLAG2_ALWAYS_ALLOW_PITCHING)))
+        *data << float(movementInfo.pitch);
 
-    *data << (uint32)m_movementInfo.fallTime;
+    *data << uint32(movementInfo.fallTime);
 
     // 0x00001000
-    if (GetUnitMovementFlags() & MOVEMENTFLAG_FALLING)
+    if (movementInfo.HasMovementFlag(MOVEMENTFLAG_FALLING))
     {
-        *data << (float)m_movementInfo.jump.zspeed;
-        *data << (float)m_movementInfo.jump.sinAngle;
-        *data << (float)m_movementInfo.jump.cosAngle;
-        *data << (float)m_movementInfo.jump.xyspeed;
+        *data << float(movementInfo.jump.zspeed);
+        *data << float(movementInfo.jump.sinAngle);
+        *data << float(movementInfo.jump.cosAngle);
+        *data << float(movementInfo.jump.xyspeed);
     }
 
     // 0x04000000
-    if (GetUnitMovementFlags() & MOVEMENTFLAG_SPLINE_ELEVATION)
-        *data << (float)m_movementInfo.splineElevation;
+    if (movementInfo.HasMovementFlag(MOVEMENTFLAG_SPLINE_ELEVATION))
+        *data << float(movementInfo.splineElevation);
 }
 
 bool Unit::IsFalling() const
@@ -13834,18 +13825,39 @@ void Unit::NearTeleportTo(Position const& pos, bool casting /*= false*/)
 
 void Unit::SendTeleportPacket(Position const& pos)
 {
-    Position oldPos = { GetPositionX(), GetPositionY(), GetPositionZMinusOffset(), GetOrientation() };
-    if (GetTypeId() == TYPEID_UNIT)
-        Relocate(&pos);
+    // MSG_MOVE_TELEPORT is sent to nearby players to signal the teleport
+    // MSG_MOVE_TELEPORT_ACK is sent to self in order to trigger ACK and update the position server side
 
-    WorldPacket data2(MSG_MOVE_TELEPORT, 38);
-    data2 << GetPackGUID();
-    BuildMovementPacket(&data2);
-    if (GetTypeId() == TYPEID_UNIT)
-        Relocate(&oldPos);
-    if (GetTypeId() == TYPEID_PLAYER)
-        Relocate(&pos);
-    SendMessageToSet(&data2, false);
+    MovementInfo teleportMovementInfo = m_movementInfo;
+    teleportMovementInfo.pos.Relocate(pos);
+    Position transportPos = pos;
+    if (TransportBase* transportBase = GetDirectTransport())
+    {
+        float x, y, z, o;
+        pos.GetPosition(x, y, z, o);
+        transportBase->CalculatePassengerOffset(x, y, z, &o);
+        transportPos.Relocate(x, y, z, o);
+    }
+
+    WorldPacket moveUpdateTeleport(MSG_MOVE_TELEPORT, 38);
+    moveUpdateTeleport << GetPackGUID();
+    Unit* broadcastSource = this;
+
+    if (Player* playerMover = GetPlayerBeingMoved())
+    {
+        WorldPacket moveTeleport(MSG_MOVE_TELEPORT_ACK, 41);
+        moveTeleport << GetPackGUID();
+        moveTeleport << uint32(0);                                     // this value increments every time
+        Unit::BuildMovementPacket(pos, transportPos, teleportMovementInfo, &moveTeleport);
+        playerMover->SendDirectMessage(&moveTeleport);
+
+        broadcastSource = playerMover;
+    }
+
+    Unit::BuildMovementPacket(pos, transportPos, teleportMovementInfo, &moveUpdateTeleport);
+
+    // Broadcast the packet to everyone except self.
+    broadcastSource->SendMessageToSet(&moveUpdateTeleport, false);
 }
 
 bool Unit::UpdatePosition(float x, float y, float z, float orientation, bool teleport)
@@ -14188,7 +14200,8 @@ void Unit::SetInFront(WorldObject const* target)
 
 void Unit::SetFacingTo(float ori, bool force)
 {
-    if (!force && !IsStopped())
+    // do not face when already moving
+    if (!force && (!IsStopped() || !movespline->Finalized()))
         return;
 
     Movement::MoveSplineInit init(this);
@@ -14202,7 +14215,7 @@ void Unit::SetFacingTo(float ori, bool force)
 void Unit::SetFacingToObject(WorldObject const* object, bool force)
 {
     // do not face when already moving
-    if (!force && !IsStopped())
+    if (!force && (!IsStopped() || !movespline->Finalized()))
         return;
 
     /// @todo figure out under what conditions creature will move towards object instead of facing it where it currently is.
@@ -14456,7 +14469,7 @@ void Unit::BuildValuesUpdate(uint8 updateType, ByteBuffer* data, Player* target)
                             fieldBuffer << (m_uint32Values[UNIT_FIELD_BYTES_2] & ((UNIT_BYTE2_FLAG_SANCTUARY /*| UNIT_BYTE2_FLAG_AURAS | UNIT_BYTE2_FLAG_UNK5*/) << 8)); // this flag is at uint8 offset 1 !!
                         else
                             // pretend that all other HOSTILE players have own faction, to allow follow, heal, rezz (trade wont work)
-                            fieldBuffer << uint32(target->getFaction());
+                            fieldBuffer << uint32(target->GetFaction());
                     }
                     else
                         fieldBuffer << m_uint32Values[index];

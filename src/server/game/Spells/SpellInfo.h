@@ -210,7 +210,6 @@ public:
     SpellImplicitTargetInfo(uint32 target);
 
     bool IsArea() const;
-    bool IsProximityBasedAoe() const;
     SpellTargetSelectionCategories GetSelectionCategory() const;
     SpellTargetReferenceTypes GetReferenceType() const;
     SpellTargetObjectTypes GetObjectType() const;
@@ -433,6 +432,7 @@ class TC_GAME_API SpellInfo
         bool IsTargetingArea() const;
         bool NeedsExplicitUnitTarget() const;
         bool NeedsToBeTriggeredByCaster(SpellInfo const* triggeringSpell) const;
+        bool IsSelfCast() const;
 
         bool IsPassive() const;
         bool IsAutocastable() const;

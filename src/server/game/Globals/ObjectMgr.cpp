@@ -333,12 +333,8 @@ void ObjectMgr::LoadGossipMenuItemsLocales()
 
     _gossipMenuItemsLocaleStore.clear();                              // need for reload case
 
-    QueryResult result = WorldDatabase.Query("SELECT menu_id, id, "
-        "option_text_loc1, box_text_loc1, option_text_loc2, box_text_loc2, "
-        "option_text_loc3, box_text_loc3, option_text_loc4, box_text_loc4, "
-        "option_text_loc5, box_text_loc5, option_text_loc6, box_text_loc6, "
-        "option_text_loc7, box_text_loc7, option_text_loc8, box_text_loc8 "
-        "FROM locales_gossip_menu_option");
+    //                                               0       1            2       3           4
+    QueryResult result = WorldDatabase.Query("SELECT MenuID, OptionID, Locale, OptionText, BoxText FROM gossip_menu_option_locale");
 
     if (!result)
         return;
@@ -347,19 +343,20 @@ void ObjectMgr::LoadGossipMenuItemsLocales()
     {
         Field* fields = result->Fetch();
 
-        uint16 menuId   = fields[0].GetUInt16();
-        uint16 id       = fields[1].GetUInt16();
+        uint16 menuId           = fields[0].GetUInt16();
+        uint16 optionId         = fields[1].GetUInt16();
+        std::string localeName  = fields[2].GetString();
+        std::string optionText  = fields[3].GetString();
+        std::string boxText     = fields[4].GetString();
 
-        GossipMenuItemsLocale& data = _gossipMenuItemsLocaleStore[MAKE_PAIR32(menuId, id)];
+        GossipMenuItemsLocale& data = _gossipMenuItemsLocaleStore[MAKE_PAIR32(menuId, optionId)];
+        LocaleConstant locale       = GetLocaleByName(localeName);
+        if (locale == LOCALE_enUS)
+            continue;
 
-        for (uint8 i = TOTAL_LOCALES - 1; i > 0; --i)
-        {
-            LocaleConstant locale = (LocaleConstant) i;
-            AddLocaleString(fields[2 + 2 * (i - 1)].GetString(), locale, data.OptionText);
-            AddLocaleString(fields[2 + 2 * (i - 1) + 1].GetString(), locale, data.BoxText);
-        }
-    }
-    while (result->NextRow());
+        AddLocaleString(optionText, locale, data.OptionText);
+        AddLocaleString(boxText, locale, data.BoxText);
+    } while (result->NextRow());
 
     TC_LOG_INFO("server.loading", ">> Loaded %u gossip_menu_option locale strings in %u ms", uint32(_gossipMenuItemsLocaleStore.size()), GetMSTimeDiffToNow(oldMSTime));
 }
@@ -422,12 +419,10 @@ void ObjectMgr::LoadCreatureTemplates()
     }
 
     _creatureTemplateStore.rehash(result->GetRowCount());
-    uint32 count = 0;
     do
     {
         Field* fields = result->Fetch();
         LoadCreatureTemplate(fields);
-        ++count;
     }
     while (result->NextRow());
 
@@ -435,7 +430,7 @@ void ObjectMgr::LoadCreatureTemplates()
     for (CreatureTemplateContainer::const_iterator itr = _creatureTemplateStore.begin(); itr != _creatureTemplateStore.end(); ++itr)
         CheckCreatureTemplate(&itr->second);
 
-    TC_LOG_INFO("server.loading", ">> Loaded %u creature definitions in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+    TC_LOG_INFO("server.loading", ">> Loaded %u creature definitions in %u ms", uint32(_creatureTemplateStore.size()), GetMSTimeDiffToNow(oldMSTime));
 }
 
 void ObjectMgr::LoadCreatureTemplate(Field* fields)
@@ -2232,15 +2227,14 @@ void ObjectMgr::RemoveGameobjectFromGrid(ObjectGuid::LowType guid, GameObjectDat
     }
 }
 
-
 void ObjectMgr::LoadItemLocales()
 {
     uint32 oldMSTime = getMSTime();
 
     _itemLocaleStore.clear();                                 // need for reload case
 
-    QueryResult result = WorldDatabase.Query("SELECT entry, name_loc1, description_loc1, name_loc2, description_loc2, name_loc3, description_loc3, name_loc4, description_loc4, name_loc5, description_loc5, name_loc6, description_loc6, name_loc7, description_loc7, name_loc8, description_loc8 FROM locales_item");
-
+    //                                               0   1       2     3
+    QueryResult result = WorldDatabase.Query("SELECT ID, locale, Name, Description FROM item_template_locale");
     if (!result)
         return;
 
@@ -2248,16 +2242,18 @@ void ObjectMgr::LoadItemLocales()
     {
         Field* fields = result->Fetch();
 
-        uint32 entry = fields[0].GetUInt32();
+        uint32 id               = fields[0].GetUInt32();
+        std::string localeName  = fields[1].GetString();
+        std::string Name        = fields[2].GetString();
+        std::string Description = fields[3].GetString();
 
-        ItemLocale& data = _itemLocaleStore[entry];
+        ItemLocale& data        = _itemLocaleStore[id];
+        LocaleConstant locale   = GetLocaleByName(localeName);
+        if (locale == LOCALE_enUS)
+            continue;
 
-        for (uint8 i = TOTAL_LOCALES - 1; i > 0; --i)
-        {
-            LocaleConstant locale = (LocaleConstant) i;
-            AddLocaleString(fields[1 + 2 * (i - 1)].GetString(), locale, data.Name);
-            AddLocaleString(fields[1 + 2 * (i - 1) + 1].GetString(), locale, data.Description);
-        }
+        AddLocaleString(Name, locale, data.Name);
+        AddLocaleString(Description, locale, data.Description);
     } while (result->NextRow());
 
     TC_LOG_INFO("server.loading", ">> Loaded %u Item locale strings in %u ms", uint32(_itemLocaleStore.size()), GetMSTimeDiffToNow(oldMSTime));
@@ -2884,8 +2880,8 @@ void ObjectMgr::LoadItemSetNameLocales()
 
     _itemSetNameLocaleStore.clear();                                 // need for reload case
 
-    QueryResult result = WorldDatabase.Query("SELECT `entry`, `name_loc1`, `name_loc2`, `name_loc3`, `name_loc4`, `name_loc5`, `name_loc6`, `name_loc7`, `name_loc8` FROM `locales_item_set_names`");
-
+    //                                               0   1       2
+    QueryResult result = WorldDatabase.Query("SELECT ID, locale, Name FROM item_set_names_locale");
     if (!result)
         return;
 
@@ -2893,12 +2889,16 @@ void ObjectMgr::LoadItemSetNameLocales()
     {
         Field* fields = result->Fetch();
 
-        uint32 entry = fields[0].GetUInt32();
+        uint32 id               = fields[0].GetUInt32();
+        std::string localeName  = fields[1].GetString();
+        std::string Name        = fields[2].GetString();
 
-        ItemSetNameLocale& data = _itemSetNameLocaleStore[entry];
+        ItemSetNameLocale& data = _itemSetNameLocaleStore[id];
+        LocaleConstant locale   = GetLocaleByName(localeName);
+        if (locale == LOCALE_enUS)
+            continue;
 
-        for (uint8 i = TOTAL_LOCALES - 1; i > 0; --i)
-            AddLocaleString(fields[i].GetString(), LocaleConstant(i), data.Name);
+        AddLocaleString(Name, locale, data.Name);
     } while (result->NextRow());
 
     TC_LOG_INFO("server.loading", ">> Loaded " UI64FMTD " Item set name locale strings in %u ms", uint64(_itemSetNameLocaleStore.size()), GetMSTimeDiffToNow(oldMSTime));
@@ -4606,6 +4606,26 @@ void ObjectMgr::LoadQuests()
             qinfo->SetSpecialFlag(QUEST_SPECIAL_FLAGS_TIMED);
         if (qinfo->_requiredPlayerKills)
             qinfo->SetSpecialFlag(QUEST_SPECIAL_FLAGS_PLAYER_KILL);
+
+        // Special flag to determine if quest is completed from the start, used to determine if we can fail timed quest if it is completed
+        if (!qinfo->HasSpecialFlag(QUEST_SPECIAL_FLAGS_KILL | QUEST_SPECIAL_FLAGS_CAST | QUEST_SPECIAL_FLAGS_SPEAKTO | QUEST_SPECIAL_FLAGS_EXPLORATION_OR_EVENT))
+        {
+            bool addFlag = true;
+            if (qinfo->HasSpecialFlag(QUEST_SPECIAL_FLAGS_DELIVER))
+            {
+                for (uint8 j = 0; j < QUEST_ITEM_OBJECTIVES_COUNT; ++j)
+                {
+                    if (qinfo->RequiredItemId[j] != 0 && (qinfo->RequiredItemId[j] != qinfo->GetSrcItemId() || qinfo->RequiredItemCount[j] > qinfo->GetSrcItemCount()))
+                    {
+                        addFlag = false;
+                        break;
+                    }
+                }
+            }
+
+            if (addFlag)
+                qinfo->SetSpecialFlag(QUEST_SPECIAL_FLAGS_COMPLETED_AT_START);
+        }
     }
 
     // check QUEST_SPECIAL_FLAGS_EXPLORATION_OR_EVENT for spell with SPELL_EFFECT_QUEST_COMPLETE
@@ -4647,17 +4667,8 @@ void ObjectMgr::LoadQuestLocales()
 
     _questLocaleStore.clear();                                // need for reload case
 
-    QueryResult result = WorldDatabase.Query("SELECT Id, "
-        "Title_loc1, Details_loc1, Objectives_loc1, OfferRewardText_loc1, RequestItemsText_loc1, EndText_loc1, CompletedText_loc1, ObjectiveText1_loc1, ObjectiveText2_loc1, ObjectiveText3_loc1, ObjectiveText4_loc1, "
-        "Title_loc2, Details_loc2, Objectives_loc2, OfferRewardText_loc2, RequestItemsText_loc2, EndText_loc2, CompletedText_loc2, ObjectiveText1_loc2, ObjectiveText2_loc2, ObjectiveText3_loc2, ObjectiveText4_loc2, "
-        "Title_loc3, Details_loc3, Objectives_loc3, OfferRewardText_loc3, RequestItemsText_loc3, EndText_loc3, CompletedText_loc3, ObjectiveText1_loc3, ObjectiveText2_loc3, ObjectiveText3_loc3, ObjectiveText4_loc3, "
-        "Title_loc4, Details_loc4, Objectives_loc4, OfferRewardText_loc4, RequestItemsText_loc4, EndText_loc4, CompletedText_loc4, ObjectiveText1_loc4, ObjectiveText2_loc4, ObjectiveText3_loc4, ObjectiveText4_loc4, "
-        "Title_loc5, Details_loc5, Objectives_loc5, OfferRewardText_loc5, RequestItemsText_loc5, EndText_loc5, CompletedText_loc5, ObjectiveText1_loc5, ObjectiveText2_loc5, ObjectiveText3_loc5, ObjectiveText4_loc5, "
-        "Title_loc6, Details_loc6, Objectives_loc6, OfferRewardText_loc6, RequestItemsText_loc6, EndText_loc6, CompletedText_loc6, ObjectiveText1_loc6, ObjectiveText2_loc6, ObjectiveText3_loc6, ObjectiveText4_loc6, "
-        "Title_loc7, Details_loc7, Objectives_loc7, OfferRewardText_loc7, RequestItemsText_loc7, EndText_loc7, CompletedText_loc7, ObjectiveText1_loc7, ObjectiveText2_loc7, ObjectiveText3_loc7, ObjectiveText4_loc7, "
-        "Title_loc8, Details_loc8, Objectives_loc8, OfferRewardText_loc8, RequestItemsText_loc8, EndText_loc8, CompletedText_loc8, ObjectiveText1_loc8, ObjectiveText2_loc8, ObjectiveText3_loc8, ObjectiveText4_loc8"
-        " FROM locales_quest");
-
+    //                                               0   1       2      3        4           5                6                 7        8              9               10              11              12
+    QueryResult result = WorldDatabase.Query("SELECT ID, locale, Title, Details, Objectives, OfferRewardText, RequestItemsText, EndText, CompletedText, ObjectiveText1, ObjectiveText2, ObjectiveText3, ObjectiveText4 FROM quest_template_locale");
     if (!result)
         return;
 
@@ -4665,25 +4676,25 @@ void ObjectMgr::LoadQuestLocales()
     {
         Field* fields = result->Fetch();
 
-        uint32 entry = fields[0].GetUInt32();
+        uint32 id               = fields[0].GetUInt32();
+        std::string localeName  = fields[1].GetString();
 
-        QuestLocale& data = _questLocaleStore[entry];
+        QuestLocale& data = _questLocaleStore[id];
 
-        for (uint8 i = TOTAL_LOCALES - 1; i > 0; --i)
-        {
-            LocaleConstant locale = (LocaleConstant) i;
+        LocaleConstant locale = GetLocaleByName(localeName);
+        if (locale == LOCALE_enUS)
+            continue;
 
-            AddLocaleString(fields[1 + 11 * (i - 1)].GetString(), locale, data.Title);
-            AddLocaleString(fields[1 + 11 * (i - 1) + 1].GetString(), locale, data.Details);
-            AddLocaleString(fields[1 + 11 * (i - 1) + 2].GetString(), locale, data.Objectives);
-            AddLocaleString(fields[1 + 11 * (i - 1) + 3].GetString(), locale, data.OfferRewardText);
-            AddLocaleString(fields[1 + 11 * (i - 1) + 4].GetString(), locale, data.RequestItemsText);
-            AddLocaleString(fields[1 + 11 * (i - 1) + 5].GetString(), locale, data.AreaDescription);
-            AddLocaleString(fields[1 + 11 * (i - 1) + 6].GetString(), locale, data.CompletedText);
+        AddLocaleString(fields[2].GetString(), locale, data.Title);
+        AddLocaleString(fields[3].GetString(), locale, data.Details);
+        AddLocaleString(fields[4].GetString(), locale, data.Objectives);
+        AddLocaleString(fields[5].GetString(), locale, data.OfferRewardText);
+        AddLocaleString(fields[6].GetString(), locale, data.RequestItemsText);
+        AddLocaleString(fields[7].GetString(), locale, data.AreaDescription);
+        AddLocaleString(fields[8].GetString(), locale, data.CompletedText);
 
-            for (uint8 k = 0; k < 4; ++k)
-                AddLocaleString(fields[1 + 11 * (i - 1) + 7 + k].GetString(), locale, data.ObjectiveText[k]);
-        }
+        for (uint8 i = 0; i < 4; ++i)
+            AddLocaleString(fields[i + 9].GetString(), locale, data.ObjectiveText[i]);
     } while (result->NextRow());
 
     TC_LOG_INFO("server.loading", ">> Loaded %u Quest locale strings in %u ms", uint32(_questLocaleStore.size()), GetMSTimeDiffToNow(oldMSTime));
@@ -5543,16 +5554,10 @@ void ObjectMgr::LoadNpcTextLocales()
 
     _npcTextLocaleStore.clear();                              // need for reload case
 
-    QueryResult result = WorldDatabase.Query("SELECT ID, "
-        "Text0_0_loc1, Text0_1_loc1, Text1_0_loc1, Text1_1_loc1, Text2_0_loc1, Text2_1_loc1, Text3_0_loc1, Text3_1_loc1, Text4_0_loc1, Text4_1_loc1, Text5_0_loc1, Text5_1_loc1, Text6_0_loc1, Text6_1_loc1, Text7_0_loc1, Text7_1_loc1, "
-        "Text0_0_loc2, Text0_1_loc2, Text1_0_loc2, Text1_1_loc2, Text2_0_loc2, Text2_1_loc2, Text3_0_loc2, Text3_1_loc1, Text4_0_loc2, Text4_1_loc2, Text5_0_loc2, Text5_1_loc2, Text6_0_loc2, Text6_1_loc2, Text7_0_loc2, Text7_1_loc2, "
-        "Text0_0_loc3, Text0_1_loc3, Text1_0_loc3, Text1_1_loc3, Text2_0_loc3, Text2_1_loc3, Text3_0_loc3, Text3_1_loc1, Text4_0_loc3, Text4_1_loc3, Text5_0_loc3, Text5_1_loc3, Text6_0_loc3, Text6_1_loc3, Text7_0_loc3, Text7_1_loc3, "
-        "Text0_0_loc4, Text0_1_loc4, Text1_0_loc4, Text1_1_loc4, Text2_0_loc4, Text2_1_loc4, Text3_0_loc4, Text3_1_loc1, Text4_0_loc4, Text4_1_loc4, Text5_0_loc4, Text5_1_loc4, Text6_0_loc4, Text6_1_loc4, Text7_0_loc4, Text7_1_loc4, "
-        "Text0_0_loc5, Text0_1_loc5, Text1_0_loc5, Text1_1_loc5, Text2_0_loc5, Text2_1_loc5, Text3_0_loc5, Text3_1_loc1, Text4_0_loc5, Text4_1_loc5, Text5_0_loc5, Text5_1_loc5, Text6_0_loc5, Text6_1_loc5, Text7_0_loc5, Text7_1_loc5, "
-        "Text0_0_loc6, Text0_1_loc6, Text1_0_loc6, Text1_1_loc6, Text2_0_loc6, Text2_1_loc6, Text3_0_loc6, Text3_1_loc1, Text4_0_loc6, Text4_1_loc6, Text5_0_loc6, Text5_1_loc6, Text6_0_loc6, Text6_1_loc6, Text7_0_loc6, Text7_1_loc6, "
-        "Text0_0_loc7, Text0_1_loc7, Text1_0_loc7, Text1_1_loc7, Text2_0_loc7, Text2_1_loc7, Text3_0_loc7, Text3_1_loc1, Text4_0_loc7, Text4_1_loc7, Text5_0_loc7, Text5_1_loc7, Text6_0_loc7, Text6_1_loc7, Text7_0_loc7, Text7_1_loc7, "
-        "Text0_0_loc8, Text0_1_loc8, Text1_0_loc8, Text1_1_loc8, Text2_0_loc8, Text2_1_loc8, Text3_0_loc8, Text3_1_loc1, Text4_0_loc8, Text4_1_loc8, Text5_0_loc8, Text5_1_loc8, Text6_0_loc8, Text6_1_loc8, Text7_0_loc8, Text7_1_loc8 "
-        " FROM locales_npc_text");
+    QueryResult result = WorldDatabase.Query("SELECT ID, Locale, "
+    //   2        3        4        5        6        7        8        9        10       11       12       13       14       15       16       17
+        "Text0_0, Text0_1, Text1_0, Text1_1, Text2_0, Text2_1, Text3_0, Text3_1, Text4_0, Text4_1, Text5_0, Text5_1, Text6_0, Text6_1, Text7_0, Text7_1 "
+        "FROM npc_text_locale");
 
     if (!result)
         return;
@@ -5561,18 +5566,18 @@ void ObjectMgr::LoadNpcTextLocales()
     {
         Field* fields = result->Fetch();
 
-        uint32 entry = fields[0].GetUInt32();
+        uint32 id               = fields[0].GetUInt32();
+        std::string localeName  = fields[1].GetString();
 
-        NpcTextLocale& data = _npcTextLocaleStore[entry];
+        NpcTextLocale& data     = _npcTextLocaleStore[id];
+        LocaleConstant locale   = GetLocaleByName(localeName);
+        if (locale == LOCALE_enUS)
+            continue;
 
-        for (uint8 i = TOTAL_LOCALES - 1; i > 0; --i)
+        for (uint8 i = 0; i < MAX_GOSSIP_TEXT_OPTIONS; ++i)
         {
-            LocaleConstant locale = (LocaleConstant) i;
-            for (uint8 j = 0; j < MAX_GOSSIP_TEXT_OPTIONS; ++j)
-            {
-                AddLocaleString(fields[1 + 8 * 2 * (i - 1) + 2 * j].GetString(), locale, data.Text_0[j]);
-                AddLocaleString(fields[1 + 8 * 2 * (i - 1) + 2 * j + 1].GetString(), locale, data.Text_1[j]);
-            }
+            AddLocaleString(fields[2 + i * 2].GetString(), locale, data.Text_0[i]);
+            AddLocaleString(fields[3 + i * 2].GetString(), locale, data.Text_1[i]);
         }
     } while (result->NextRow());
 
@@ -8419,15 +8424,14 @@ void ObjectMgr::LoadGossipMenu()
 
     _gossipMenusStore.clear();
 
-    QueryResult result = WorldDatabase.Query("SELECT entry, text_id FROM gossip_menu");
+    //                                               0       1
+    QueryResult result = WorldDatabase.Query("SELECT MenuID, TextID FROM gossip_menu");
 
     if (!result)
     {
-        TC_LOG_ERROR("server.loading", ">> Loaded 0  gossip_menu entries. DB table `gossip_menu` is empty!");
+        TC_LOG_ERROR("server.loading", ">> Loaded 0 gossip_menu IDs. DB table `gossip_menu` is empty!");
         return;
     }
-
-    uint32 count = 0;
 
     do
     {
@@ -8435,22 +8439,19 @@ void ObjectMgr::LoadGossipMenu()
 
         GossipMenus gMenu;
 
-        gMenu.entry             = fields[0].GetUInt16();
-        gMenu.text_id           = fields[1].GetUInt32();
+        gMenu.MenuID = fields[0].GetUInt16();
+        gMenu.TextID = fields[1].GetUInt32();
 
-        if (!GetGossipText(gMenu.text_id))
+        if (!GetGossipText(gMenu.TextID))
         {
-            TC_LOG_ERROR("sql.sql", "Table gossip_menu entry %u are using non-existing text_id %u", gMenu.entry, gMenu.text_id);
+            TC_LOG_ERROR("sql.sql", "Table gossip_menu: ID %u is using non-existing TextID %u", gMenu.MenuID, gMenu.TextID);
             continue;
         }
 
-        _gossipMenusStore.insert(GossipMenusContainer::value_type(gMenu.entry, gMenu));
+        _gossipMenusStore.insert(GossipMenusContainer::value_type(gMenu.MenuID, gMenu));
+    } while (result->NextRow());
 
-        ++count;
-    }
-    while (result->NextRow());
-
-    TC_LOG_INFO("server.loading", ">> Loaded %u gossip_menu entries in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+    TC_LOG_INFO("server.loading", ">> Loaded %u gossip_menu IDs in %u ms", uint32(_gossipMenusStore.size()), GetMSTimeDiffToNow(oldMSTime));
 }
 
 void ObjectMgr::LoadGossipMenuItems()
@@ -8460,17 +8461,15 @@ void ObjectMgr::LoadGossipMenuItems()
     _gossipMenuItemsStore.clear();
 
     QueryResult result = WorldDatabase.Query(
-        //      0        1   2            3            4                      5          6                   7               8              9          10         11        12
-        "SELECT menu_id, id, option_icon, option_text, OptionBroadcastTextID, option_id, npc_option_npcflag, action_menu_id, action_poi_id, box_coded, box_money, box_text, BoxBroadcastTextID "
-        "FROM gossip_menu_option ORDER BY menu_id, id");
+        //      0       1       2           3           4                      5           6              7             8            9         10        11       12
+        "SELECT MenuID, OptionID, OptionIcon, OptionText, OptionBroadcastTextID, OptionType, OptionNpcFlag, ActionMenuID, ActionPoiID, BoxCoded, BoxMoney, BoxText, BoxBroadcastTextID "
+        "FROM gossip_menu_option ORDER BY MenuID, OptionID");
 
     if (!result)
     {
-        TC_LOG_ERROR("server.loading", ">> Loaded 0 gossip_menu_option entries. DB table `gossip_menu_option` is empty!");
+        TC_LOG_ERROR("server.loading", ">> Loaded 0 gossip_menu_option IDs. DB table `gossip_menu_option` is empty!");
         return;
     }
-
-    uint32 count = 0;
 
     do
     {
@@ -8478,59 +8477,57 @@ void ObjectMgr::LoadGossipMenuItems()
 
         GossipMenuItems gMenuItem;
 
-        gMenuItem.MenuId                = fields[0].GetUInt16();
-        gMenuItem.OptionIndex           = fields[1].GetUInt16();
+        gMenuItem.MenuID                = fields[0].GetUInt16();
+        gMenuItem.OptionID              = fields[1].GetUInt16();
         gMenuItem.OptionIcon            = fields[2].GetUInt32();
         gMenuItem.OptionText            = fields[3].GetString();
-        gMenuItem.OptionBroadcastTextId = fields[4].GetUInt32();
+        gMenuItem.OptionBroadcastTextID = fields[4].GetUInt32();
         gMenuItem.OptionType            = fields[5].GetUInt8();
-        gMenuItem.OptionNpcflag         = fields[6].GetUInt32();
-        gMenuItem.ActionMenuId          = fields[7].GetUInt32();
-        gMenuItem.ActionPoiId           = fields[8].GetUInt32();
+        gMenuItem.OptionNpcFlag         = fields[6].GetUInt32();
+        gMenuItem.ActionMenuID          = fields[7].GetUInt32();
+        gMenuItem.ActionPoiID           = fields[8].GetUInt32();
         gMenuItem.BoxCoded              = fields[9].GetBool();
         gMenuItem.BoxMoney              = fields[10].GetUInt32();
         gMenuItem.BoxText               = fields[11].GetString();
-        gMenuItem.BoxBroadcastTextId    = fields[12].GetUInt32();
+        gMenuItem.BoxBroadcastTextID    = fields[12].GetUInt32();
 
         if (gMenuItem.OptionIcon >= GOSSIP_ICON_MAX)
         {
-            TC_LOG_ERROR("sql.sql", "Table `gossip_menu_option` for menu %u, id %u has unknown icon id %u. Replacing with GOSSIP_ICON_CHAT", gMenuItem.MenuId, gMenuItem.OptionIndex, gMenuItem.OptionIcon);
+            TC_LOG_ERROR("sql.sql", "Table `gossip_menu_option` for menu %u, id %u has unknown icon id %u. Replacing with GOSSIP_ICON_CHAT", gMenuItem.MenuID, gMenuItem.OptionID, gMenuItem.OptionIcon);
             gMenuItem.OptionIcon = GOSSIP_ICON_CHAT;
         }
 
-        if (gMenuItem.OptionBroadcastTextId)
+        if (gMenuItem.OptionBroadcastTextID)
         {
-            if (!GetBroadcastText(gMenuItem.OptionBroadcastTextId))
+            if (!GetBroadcastText(gMenuItem.OptionBroadcastTextID))
             {
-                TC_LOG_ERROR("sql.sql", "Table `gossip_menu_option` for menu %u, id %u has non-existing or incompatible OptionBroadcastTextId %u, ignoring.", gMenuItem.MenuId, gMenuItem.OptionIndex, gMenuItem.OptionBroadcastTextId);
-                gMenuItem.OptionBroadcastTextId = 0;
+                TC_LOG_ERROR("sql.sql", "Table `gossip_menu_option` for menu %u, id %u has non-existing or incompatible OptionBroadcastTextID %u, ignoring.", gMenuItem.MenuID, gMenuItem.OptionID, gMenuItem.OptionBroadcastTextID);
+                gMenuItem.OptionBroadcastTextID = 0;
             }
         }
 
         if (gMenuItem.OptionType >= GOSSIP_OPTION_MAX)
-            TC_LOG_ERROR("sql.sql", "Table `gossip_menu_option` for menu %u, id %u has unknown option id %u. Option will not be used", gMenuItem.MenuId, gMenuItem.OptionIndex, gMenuItem.OptionType);
+            TC_LOG_ERROR("sql.sql", "Table `gossip_menu_option` for menu %u, id %u has unknown option id %u. Option will not be used", gMenuItem.MenuID, gMenuItem.OptionID, gMenuItem.OptionType);
 
-        if (gMenuItem.ActionPoiId && !GetPointOfInterest(gMenuItem.ActionPoiId))
+        if (gMenuItem.ActionPoiID && !GetPointOfInterest(gMenuItem.ActionPoiID))
         {
-            TC_LOG_ERROR("sql.sql", "Table `gossip_menu_option` for menu %u, id %u use non-existing action_poi_id %u, ignoring", gMenuItem.MenuId, gMenuItem.OptionIndex, gMenuItem.ActionPoiId);
-            gMenuItem.ActionPoiId = 0;
+            TC_LOG_ERROR("sql.sql", "Table `gossip_menu_option` for menu %u, id %u use non-existing ActionPoiID %u, ignoring", gMenuItem.MenuID, gMenuItem.OptionID, gMenuItem.ActionPoiID);
+            gMenuItem.ActionPoiID = 0;
         }
 
-        if (gMenuItem.BoxBroadcastTextId)
+        if (gMenuItem.BoxBroadcastTextID)
         {
-            if (!GetBroadcastText(gMenuItem.BoxBroadcastTextId))
+            if (!GetBroadcastText(gMenuItem.BoxBroadcastTextID))
             {
-                TC_LOG_ERROR("sql.sql", "Table `gossip_menu_option` for menu %u, id %u has non-existing or incompatible BoxBroadcastTextId %u, ignoring.", gMenuItem.MenuId, gMenuItem.OptionIndex, gMenuItem.BoxBroadcastTextId);
-                gMenuItem.BoxBroadcastTextId = 0;
+                TC_LOG_ERROR("sql.sql", "Table `gossip_menu_option` for menu %u, id %u has non-existing or incompatible BoxBroadcastTextID %u, ignoring.", gMenuItem.MenuID, gMenuItem.OptionID, gMenuItem.BoxBroadcastTextID);
+                gMenuItem.BoxBroadcastTextID = 0;
             }
         }
 
-        _gossipMenuItemsStore.insert(GossipMenuItemsContainer::value_type(gMenuItem.MenuId, gMenuItem));
-        ++count;
-    }
-    while (result->NextRow());
+        _gossipMenuItemsStore.insert(GossipMenuItemsContainer::value_type(gMenuItem.MenuID, gMenuItem));
+    } while (result->NextRow());
 
-    TC_LOG_INFO("server.loading", ">> Loaded %u gossip_menu_option entries in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+    TC_LOG_INFO("server.loading", ">> Loaded %u gossip_menu_option entries in %u ms", uint32(_gossipMenuItemsStore.size()), GetMSTimeDiffToNow(oldMSTime));
 }
 
 void ObjectMgr::AddVendorItem(uint32 entry, uint32 item, int32 maxcount, uint32 incrtime, uint32 extendedCost, bool persist /*= true*/)
@@ -8823,41 +8820,39 @@ void ObjectMgr::LoadBroadcastTextLocales()
 {
     uint32 oldMSTime = getMSTime();
 
-    //                                               0   1              2              3              4              5              6              7              8              9                10               11               12               13               14               15               16
-    QueryResult result = WorldDatabase.Query("SELECT Id, MaleText_loc1, MaleText_loc2, MaleText_loc3, MaleText_loc4, MaleText_loc5, MaleText_loc6, MaleText_loc7, MaleText_loc8, FemaleText_loc1, FemaleText_loc2, FemaleText_loc3, FemaleText_loc4, FemaleText_loc5, FemaleText_loc6, FemaleText_loc7, FemaleText_loc8 FROM locales_broadcast_text");
-
+    //                                               0   1       2         3
+    QueryResult result = WorldDatabase.Query("SELECT ID, locale, MaleText, FemaleText FROM broadcast_text_locale");
     if (!result)
     {
-        TC_LOG_INFO("server.loading", ">> Loaded 0 broadcast text locales. DB table `locales_broadcast_text` is empty.");
+        TC_LOG_INFO("server.loading", ">> Loaded 0 broadcast text locales. DB table `broadcast_text_locale` is empty.");
         return;
     }
-
-    uint32 count = 0;
 
     do
     {
         Field* fields = result->Fetch();
 
-        uint32 id = fields[0].GetUInt32();
+        uint32 id               = fields[0].GetUInt32();
+        std::string localeName  = fields[1].GetString();
+        std::string MaleText    = fields[2].GetString();
+        std::string FemaleText  = fields[3].GetString();
+
         BroadcastTextContainer::iterator bct = _broadcastTextStore.find(id);
         if (bct == _broadcastTextStore.end())
         {
-            TC_LOG_ERROR("sql.sql", "BroadcastText (Id: %u) in table `locales_broadcast_text` does not exist. Skipped!", id);
+            TC_LOG_ERROR("sql.sql", "BroadcastText (Id: %u) in table `broadcast_text_locale` does not exist. Skipped!", id);
             continue;
         }
 
-        for (uint8 i = TOTAL_LOCALES - 1; i > 0; --i)
-        {
-            LocaleConstant locale = LocaleConstant(i);
-            AddLocaleString(fields[1 + (i - 1)].GetString(), locale, bct->second.MaleText);
-            AddLocaleString(fields[9 + (i - 1)].GetString(), locale, bct->second.FemaleText);
-        }
+        LocaleConstant locale = GetLocaleByName(localeName);
+        if (locale == LOCALE_enUS)
+            continue;
 
-        ++count;
-    }
-    while (result->NextRow());
+        AddLocaleString(MaleText, locale, bct->second.MaleText);
+        AddLocaleString(FemaleText, locale, bct->second.FemaleText);
+    } while (result->NextRow());
 
-    TC_LOG_INFO("server.loading", ">> Loaded %u broadcast text locales in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+    TC_LOG_INFO("server.loading", ">> Loaded %u broadcast text locales in %u ms", uint32(_broadcastTextStore.size()), GetMSTimeDiffToNow(oldMSTime));
 }
 
 CreatureBaseStats const* ObjectMgr::GetCreatureBaseStats(uint8 level, uint8 unitClass)

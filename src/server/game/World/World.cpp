@@ -53,7 +53,9 @@
 #include "MMapFactory.h"
 #include "ObjectMgr.h"
 #include "OutdoorPvPMgr.h"
+#include "PetitionMgr.h"
 #include "Player.h"
+#include "PlayerDump.h"
 #include "PoolMgr.h"
 #include "QueryCallback.h"
 #include "ScriptMgr.h"
@@ -1184,7 +1186,7 @@ void World::LoadConfigSettings(bool reload)
     if (dataPath.empty() || (dataPath.at(dataPath.length()-1) != '/' && dataPath.at(dataPath.length()-1) != '\\'))
         dataPath.push_back('/');
 
-#if PLATFORM == PLATFORM_UNIX || PLATFORM == PLATFORM_APPLE
+#if TRINITY_PLATFORM == TRINITY_PLATFORM_UNIX || TRINITY_PLATFORM == TRINITY_PLATFORM_APPLE
     if (dataPath[0] == '~')
     {
         const char* home = getenv("HOME");
@@ -1431,6 +1433,9 @@ void World::SetInitialWorldSettings()
 
     MMAP::MMapManager* mmmgr = MMAP::MMapFactory::createOrGetMMapManager();
     mmmgr->InitializeThreadUnsafe(mapIds);
+
+    TC_LOG_INFO("server.loading", "Initializing PlayerDump tables...");
+    PlayerDump::InitializeTables();
 
     TC_LOG_INFO("server.loading", "Loading SpellInfo store...");
     sSpellMgr->LoadSpellInfoStore();
@@ -1841,6 +1846,12 @@ void World::SetInitialWorldSettings()
 
     TC_LOG_INFO("server.loading", "Loading Calendar data...");
     sCalendarMgr->LoadFromDB();
+
+    TC_LOG_INFO("server.loading", "Loading Petitions...");
+    sPetitionMgr->LoadPetitions();
+
+    TC_LOG_INFO("server.loading", "Loading Signatures...");
+    sPetitionMgr->LoadSignatures();
 
     TC_LOG_INFO("server.loading", "Loading Item loot...");
     sLootItemStorage->LoadStorageFromDB();
