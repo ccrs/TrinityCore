@@ -15,9 +15,24 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-void AddSCBattlefieldWintergraspScript();
+#include "LFGPacketsCommon.h"
 
-void AddBattlefieldScripts()
+ByteBuffer& operator>>(ByteBuffer& data, WorldPackets::LFG::RideTicket& ticket)
 {
-    AddSCBattlefieldWintergraspScript();
+    data >> ticket.RequesterGuid;
+    ticket.Type = data.read<WorldPackets::LFG::RideType>();
+    data >> ticket.BgType;
+    data >> ticket.Unknown925;
+
+    return data;
+}
+
+ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::LFG::RideTicket const& ticket)
+{
+    data << ticket.RequesterGuid;
+    data << uint32(ticket.Type);
+    data << ticket.BgType;
+    data << ticket.Unknown925;
+
+    return data;
 }

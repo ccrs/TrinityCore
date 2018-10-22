@@ -4907,32 +4907,32 @@ void Player::RepopAtGraveyard()
         SpawnCorpseBones();
     }
 
-    WorldSafeLocsEntry const* ClosestGrave;
+    WorldSafeLocsEntry const* ClosestGraveyard;
 
     // Special handle for battleground maps
     if (Battleground* bg = GetBattleground())
-        ClosestGrave = bg->GetClosestGraveyard(this);
+        ClosestGraveyard = bg->GetClosestGraveyard(this);
     else
     {
-        if (Battlefield* bf = sBattlefieldMgr->GetBattlefieldToZoneId(GetZoneId()))
-            ClosestGrave = bf->GetClosestGraveyard(this);
+        if (Battlefield* battlefield = sBattlefieldMgr->GetBattlefield(GetZoneId()))
+            ClosestGraveyard = battlefield->GetClosestGraveyardLocation(this);
         else
-            ClosestGrave = sObjectMgr->GetClosestGraveyard(GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId(), GetTeam());
+            ClosestGraveyard = sObjectMgr->GetClosestGraveyard(GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId(), GetTeam());
     }
 
     // stop countdown until repop
     m_deathTimer = 0;
 
-    // if no grave found, stay at the current location
+    // if no grave is found, stay at the current location
     // and don't show spirit healer location
-    if (ClosestGrave)
+    if (ClosestGraveyard)
     {
-        TeleportTo(ClosestGrave->Continent, ClosestGrave->Loc.X, ClosestGrave->Loc.Y, ClosestGrave->Loc.Z, GetOrientation(), shouldResurrect ? TELE_REVIVE_AT_TELEPORT : 0);
-        if (isDead())                                        // not send if alive, because it used in TeleportTo()
+        TeleportTo(ClosestGraveyard->Continent, ClosestGraveyard->Loc.X, ClosestGraveyard->Loc.Y, ClosestGraveyard->Loc.Z, GetOrientation(), shouldResurrect ? TELE_REVIVE_AT_TELEPORT : 0);
+        if (isDead()) // don't send if alive, it's used in TeleportTo()
         {
             WorldPackets::Misc::DeathReleaseLoc packet;
-            packet.MapID = ClosestGrave->Continent;
-            packet.Loc = Position(ClosestGrave->Loc.X, ClosestGrave->Loc.Y, ClosestGrave->Loc.Z);
+            packet.MapID = ClosestGraveyard->Continent;
+            packet.Loc = Position(ClosestGraveyard->Loc.X, ClosestGraveyard->Loc.Y, ClosestGraveyard->Loc.Z);
             GetSession()->SendPacket(packet.Write());
         }
     }
@@ -6610,6 +6610,42 @@ void Player::RewardReputation(Quest const* quest)
     }
 }
 
+/*
+ *  If in a battleground or battlefield player dies, and an enemy removes the insignia, the player's bones is lootable
+ *  Called by remove insignia spell effect
+ */
+void Player::RemovePVPInsignia(Player* looter)
+{
+    // If player is not in battleground and not in worldpvpzone
+    if (!GetBattlegroundId() && !IsInWorldPvpZone())
+        return;
+
+    // If not released spirit, do it !
+    if (m_deathTimer > 0)
+    {
+        m_deathTimer = 0;
+        BuildPlayerRepop();
+        RepopAtGraveyard();
+    }
+
+    _corpseLocation.WorldRelocate();
+
+    // We have to convert player corpse to bones, not to be able to resurrect there
+    // SpawnCorpseBones isn't handy, 'cos it saves player
+    Corpse* bones = GetMap()->ConvertCorpseToBones(GetGUID(), true);
+    if (!bones)
+        return;
+
+    // Now we must make bones lootable, and send player loot
+    bones->SetFlag(CORPSE_FIELD_DYNAMIC_FLAGS, CORPSE_DYNFLAG_LOOTABLE);
+
+    // We store the level of our player in the gold field
+    // We retrieve this information at Player::SendLoot()
+    bones->loot.gold = GetLevel();
+    bones->lootRecipient = looter;
+    looter->SendLoot(bones->GetGUID(), LOOT_INSIGNIA);
+}
+
 void Player::UpdateHonorFields()
 {
     /// called when rewarding honor and at each save
@@ -8232,40 +8268,6 @@ bool Player::CheckAmmoCompatibility(ItemTemplate const* ammo_proto) const
     return true;
 }
 
-/*  If in a battleground a player dies, and an enemy removes the insignia, the player's bones is lootable
-    Called by remove insignia spell effect    */
-void Player::RemovedInsignia(Player* looterPlr)
-{
-    // If player is not in battleground and not in worldpvpzone
-    if (!GetBattlegroundId() && !IsInWorldPvpZone())
-        return;
-
-    // If not released spirit, do it !
-    if (m_deathTimer > 0)
-    {
-        m_deathTimer = 0;
-        BuildPlayerRepop();
-        RepopAtGraveyard();
-    }
-
-    _corpseLocation.WorldRelocate();
-
-    // We have to convert player corpse to bones, not to be able to resurrect there
-    // SpawnCorpseBones isn't handy, 'cos it saves player while he in BG
-    Corpse* bones = GetMap()->ConvertCorpseToBones(GetGUID(), true);
-    if (!bones)
-        return;
-
-    // Now we must make bones lootable, and send player loot
-    bones->SetFlag(CORPSE_FIELD_DYNAMIC_FLAGS, CORPSE_DYNFLAG_LOOTABLE);
-
-    // We store the level of our player in the gold field
-    // We retrieve this information at Player::SendLoot()
-    bones->loot.gold = GetLevel();
-    bones->lootRecipient = looterPlr;
-    looterPlr->SendLoot(bones->GetGUID(), LOOT_INSIGNIA);
-}
-
 void Player::SendLootRelease(ObjectGuid guid) const
 {
     WorldPacket data(SMSG_LOOT_RELEASE_RESPONSE, (8+1));
@@ -8460,7 +8462,7 @@ void Player::SendLoot(ObjectGuid guid, LootType loot_type)
             }
         }
     }
-    else if (guid.IsCorpse())                          // remove insignia
+    else if (guid.IsCorpse()) // remove insignia
     {
         Corpse* bones = ObjectAccessor::GetCorpse(*this, guid);
 
@@ -8474,7 +8476,7 @@ void Player::SendLoot(ObjectGuid guid, LootType loot_type)
 
         if (loot->loot_type == LOOT_NONE)
         {
-            uint32 pLevel = bones->loot.gold;
+            float playerLevel = bones->loot.gold;
             bones->loot.clear();
 
             // For AV Achievement
@@ -8484,12 +8486,12 @@ void Player::SendLoot(ObjectGuid guid, LootType loot_type)
                     loot->FillLoot(PLAYER_CORPSE_LOOT_ENTRY, LootTemplates_Creature, this, true);
             }
             // For wintergrasp Quests
-            else if (GetZoneId() == AREA_WINTERGRASP)
+            else if (GetZoneId() == BATTLEFIELD_ZONEID_WINTERGRASP)
                 loot->FillLoot(PLAYER_CORPSE_LOOT_ENTRY, LootTemplates_Creature, this, true);
 
             // It may need a better formula
             // Now it works like this: lvl10: ~6copper, lvl70: ~9silver
-            bones->loot.gold = uint32(urand(50, 150) * 0.016f * std::pow(float(pLevel) / 5.76f, 2.5f) * sWorld->getRate(RATE_DROP_MONEY));
+            bones->loot.gold = uint32(urand(50, 150) * 0.016f * std::pow(playerLevel / 5.76f, 2.5f) * sWorld->getRate(RATE_DROP_MONEY));
         }
 
         if (bones->lootRecipient != this)
@@ -8702,7 +8704,7 @@ void Player::SendInitWorldStates(uint32 zoneId, uint32 areaId)
     Battleground* battleground = GetBattleground();
     OutdoorPvP* outdoorPvP = sOutdoorPvPMgr->GetOutdoorPvPToZoneId(zoneId);
     InstanceScript* instance = GetInstanceScript();
-    Battlefield* battlefield = sBattlefieldMgr->GetBattlefieldToZoneId(zoneId);
+    Battlefield* battlefield = sBattlefieldMgr->GetBattlefield(zoneId);
 
     TC_LOG_DEBUG("network", "Player::SendInitWorldStates: Sending SMSG_INIT_WORLD_STATES for Map: {}, Zone: {}", mapId, zoneId);
 
@@ -9288,7 +9290,7 @@ void Player::SendInitWorldStates(uint32 zoneId, uint32 areaId)
             }
             break;
         case AREA_WINTERGRASP: // Wintergrasp
-            if (battlefield && battlefield->GetTypeId() == BATTLEFIELD_WG)
+            if (battlefield && battlefield->GetId() == BATTLEFIELD_BATTLEID_WINTERGRASP)
                 battlefield->FillInitialWorldStates(packet);
             else
             {
@@ -9320,16 +9322,10 @@ void Player::SendBGWeekendWorldStates() const
 
 void Player::SendBattlefieldWorldStates() const
 {
-    /// Send misc stuff that needs to be sent on every login, like the battle timers.
-    if (sWorld->getBoolConfig(CONFIG_WINTERGRASP_ENABLE))
+    sBattlefieldMgr->ForEach([this](Battlefield* battlefield)
     {
-        if (Battlefield* wg = sBattlefieldMgr->GetBattlefieldByBattleId(BATTLEFIELD_BATTLEID_WG))
-        {
-            SendUpdateWorldState(WS_BATTLEFIELD_WG_ACTIVE, wg->IsWarTime() ? 0 : 1);
-            uint32 timer = wg->IsWarTime() ? 0 : (wg->GetTimer() / 1000); // 0 - Time to next battle
-            SendUpdateWorldState(WS_BATTLEFIELD_WG_TIME_NEXT_BATTLE, uint32(GameTime::GetGameTime() + timer));
-        }
-    }
+        battlefield->SendGlobalWorldStates(this);
+    });
 }
 
 uint32 Player::GetXPRestBonus(uint32 xp)

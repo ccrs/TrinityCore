@@ -76,7 +76,7 @@ namespace lfg
 
 namespace rbac
 {
-class RBACData;
+    class RBACData;
 }
 
 namespace WorldPackets
@@ -86,6 +86,20 @@ namespace WorldPackets
         class AutoBankItem;
         class AutoStoreBankItem;
         class BuyBankSlot;
+    }
+
+    namespace Battlefield
+    {
+        class BattlefieldMgrEntryInviteResponse;
+        class BattlefieldMgrQueueInviteResponse;
+        class BattlefieldMgrExitRequest;
+    }
+
+    namespace Battleground
+    {
+        class AreaSpiritHealerQuery;
+        class AreaSpiritHealerQueue;
+        class HearthAndResurrect;
     }
 
     namespace Calendar
@@ -294,13 +308,13 @@ enum BarberShopResult
     BARBER_SHOP_RESULT_NO_MONEY_2   = 3
 };
 
-enum BFLeaveReason
+enum BattlefieldLeaveReason
 {
-    BF_LEAVE_REASON_CLOSE     = 0x00000001,
-    //BF_LEAVE_REASON_UNK1      = 0x00000002, (not used)
-    //BF_LEAVE_REASON_UNK2      = 0x00000004, (not used)
-    BF_LEAVE_REASON_EXITED    = 0x00000008,
-    BF_LEAVE_REASON_LOW_LEVEL = 0x00000010
+    BATTLEFIELD_LEAVE_REASON_CLOSE     = 0x00000001,
+    //BATTLEFIELD_LEAVE_REASON_UNK1      = 0x00000002, (not used)
+    //BATTLEFIELD_LEAVE_REASON_UNK2      = 0x00000004, (not used)
+    BATTLEFIELD_LEAVE_REASON_EXITED    = 0x00000008,
+    BATTLEFIELD_LEAVE_REASON_LOW_LEVEL = 0x00000010
 };
 
 enum ChatRestrictionType
@@ -1010,21 +1024,22 @@ class TC_GAME_API WorldSession
         void HandleBattlemasterJoinOpcode(WorldPacket& recvData);
         void HandleBattlegroundPlayerPositionsOpcode(WorldPacket& recvData);
         void HandlePVPLogDataOpcode(WorldPacket& recvData);
-        void HandleBattleFieldPortOpcode(WorldPacket& recvData);
+        void HandleBattlefieldPortOpcode(WorldPacket& recvData);
         void HandleBattlefieldListOpcode(WorldPacket& recvData);
         void HandleBattlefieldLeaveOpcode(WorldPacket& recvData);
         void HandleBattlemasterJoinArena(WorldPacket& recvData);
-        void HandleReportPvPAFK(WorldPacket& recvData);
+        void HandleReportPVPAFK(WorldPacket& recvData);
 
         // Battlefield
-        void SendBfInvitePlayerToWar(uint32 battleId, uint32 zoneId, uint32 time);
-        void SendBfInvitePlayerToQueue(uint32 battleId);
-        void SendBfQueueInviteResponse(uint32 battleId, uint32 zoneId, bool canQueue = true, bool full = false);
-        void SendBfEntered(uint32 battleId);
-        void SendBfLeaveMessage(uint32 battleId, BFLeaveReason reason = BF_LEAVE_REASON_EXITED);
-        void HandleBfQueueInviteResponse(WorldPacket& recvData);
-        void HandleBfEntryInviteResponse(WorldPacket& recvData);
-        void HandleBfQueueExitRequest(WorldPacket& recvData);
+        void SendBattlefieldInvitePlayerToWar(BattlefieldBattleId battleId, uint32 zoneId, uint32 time);
+        void SendBattlefieldInvitePlayerToQueue(BattlefieldBattleId battleId);
+        void SendBattlefieldQueueInviteResponse(BattlefieldBattleId battleId, uint32 zoneId, bool canQueue = true, bool full = false);
+        void SendBattlefieldEntered(BattlefieldBattleId battleId);
+        void SendBattlefieldLeaveMessage(BattlefieldBattleId battleId, BattlefieldLeaveReason reason = BATTLEFIELD_LEAVE_REASON_EXITED);
+        void SendBattlefieldEjectPending(BattlefieldBattleId battleId, bool remove);
+        void HandleBattlefieldEntryInviteResponse(WorldPackets::Battlefield::BattlefieldMgrEntryInviteResponse& entryInviteResponse);
+        void HandleBattlefieldQueueInviteResponse(WorldPackets::Battlefield::BattlefieldMgrQueueInviteResponse& queueInviteResponse);
+        void HandleBattlefieldExitRequest(WorldPackets::Battlefield::BattlefieldMgrExitRequest& exitRequest);
 
         void HandleWardenDataOpcode(WorldPacket& recvData);
         void HandleWorldTeleportOpcode(WorldPackets::Misc::WorldTeleport& worldTeleport);
@@ -1038,7 +1053,7 @@ class TC_GAME_API WorldSession
         void HandleTimeSyncResponse(WorldPacket& recvData);
         void HandleWhoIsOpcode(WorldPacket& recvData);
         void HandleResetInstancesOpcode(WorldPacket& recvData);
-        void HandleHearthAndResurrect(WorldPacket& recvData);
+        void HandleHearthAndResurrect(WorldPackets::Battleground::HearthAndResurrect& recvData);
         void HandleInstanceLockResponse(WorldPacket& recvPacket);
 
         // Looking for Dungeon/Raid
@@ -1081,8 +1096,8 @@ class TC_GAME_API WorldSession
         void HandleArenaTeamDisbandOpcode(WorldPacket& recvData);
         void HandleArenaTeamLeaderOpcode(WorldPacket& recvData);
 
-        void HandleAreaSpiritHealerQueryOpcode(WorldPacket& recvData);
-        void HandleAreaSpiritHealerQueueOpcode(WorldPacket& recvData);
+        void HandleAreaSpiritHealerQueryOpcode(WorldPackets::Battleground::AreaSpiritHealerQuery& recvData);
+        void HandleAreaSpiritHealerQueueOpcode(WorldPackets::Battleground::AreaSpiritHealerQueue& recvData);
         void HandleSelfResOpcode(WorldPacket& recvData);
         void HandleComplainOpcode(WorldPacket& recvData);
         void HandleRequestPetInfo(WorldPackets::Pet::RequestPetInfo& packet);

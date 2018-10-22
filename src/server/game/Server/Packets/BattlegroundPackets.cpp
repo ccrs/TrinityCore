@@ -15,9 +15,14 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-void AddSCBattlefieldWintergraspScript();
+#include "BattlegroundPackets.h"
 
-void AddBattlefieldScripts()
+void WorldPackets::Battleground::AreaSpiritHealerQuery::Read()
 {
-    AddSCBattlefieldWintergraspScript();
+    _worldPacket >> HealerGuid;
+}
+
+void WorldPackets::Battleground::AreaSpiritHealerQueue::Read()
+{
+    _worldPacket >> HealerGuid;
 }

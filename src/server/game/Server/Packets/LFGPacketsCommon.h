@@ -15,9 +15,34 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-void AddSCBattlefieldWintergraspScript();
+#ifndef LFGPacketsCommon_h__
+#define LFGPacketsCommon_h__
 
-void AddBattlefieldScripts()
+#include "ObjectGuid.h"
+#include "PacketUtilities.h"
+
+namespace WorldPackets
 {
-    AddSCBattlefieldWintergraspScript();
+    namespace LFG
+    {
+        enum class RideType : uint32
+        {
+            None = 0,
+            Battlegrounds = 1,
+            Lfg = 2
+        };
+
+        struct RideTicket
+        {
+            ObjectGuid RequesterGuid;
+            RideType Type = RideType::None;
+            uint8 BgType = 0;
+            bool Unknown925 = false;
+        };
+    }
 }
+
+ByteBuffer& operator>>(ByteBuffer& data, WorldPackets::LFG::RideTicket& ticket);
+ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::LFG::RideTicket const& ticket);
+
+#endif // LFGPacketsCommon_h__
