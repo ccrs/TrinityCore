@@ -19,6 +19,7 @@
 #define AllPackets_h__
 
 #include "BankPackets.h"
+#include "BattlefieldPackets.h"
 #include "CalendarPackets.h"
 #include "CharacterPackets.h"
 #include "ChatPackets.h"
