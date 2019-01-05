@@ -93,7 +93,6 @@ namespace WorldPackets
         class BattlefieldMgrQueueInviteResponse;
         class BattlefieldMgrExitRequest;
     }
-
     namespace Calendar
     {
         class CalendarAddEvent;
@@ -212,7 +211,6 @@ namespace WorldPackets
         class Hello;
         class TrainerBuySpell;
     }
-
     namespace Pet
     {
         class DismissCritter;
