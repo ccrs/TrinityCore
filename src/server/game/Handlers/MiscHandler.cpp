@@ -21,6 +21,7 @@
 #include "BattlefieldMgr.h"
 #include "Battleground.h"
 #include "BattlegroundMgr.h"
+#include "BattlegroundPackets.h"
 #include "CharacterPackets.h"
 #include "Chat.h"
 #include "CinematicMgr.h"
@@ -517,6 +518,56 @@ void WorldSession::HandleBugOpcode(WorldPacket& recvData)
     stmt->setString(1, content);
 
     CharacterDatabase.Execute(stmt);
+}
+
+void WorldSession::HandleAreaSpiritHealerQueryOpcode(WorldPackets::Battleground::AreaSpiritHealerQuery& areaSpiritHealerQuery)
+{
+    Creature* unit = ObjectAccessor::GetCreature(*GetPlayer(), areaSpiritHealerQuery.HealerGuid);
+    if (!unit)
+        return;
+
+    if (!unit->IsSpiritService()) // it's not spirit service
+        return;
+
+    if (Battleground* battleground = _player->GetBattleground())
+        sBattlegroundMgr->SendAreaSpiritHealerQueryOpcode(_player, battleground, areaSpiritHealerQuery.HealerGuid);
+    else if (Battlefield* battlefield = sBattlefieldMgr->GetBattlefield(_player->GetZoneId()))
+        battlefield->HandleAreaSpiritHealerQueryOpcode(_player, areaSpiritHealerQuery.HealerGuid);
+}
+
+void WorldSession::HandleAreaSpiritHealerQueueOpcode(WorldPackets::Battleground::AreaSpiritHealerQueue& areaSpiritHealerQueue)
+{
+    Creature* unit = ObjectAccessor::GetCreature(*GetPlayer(), areaSpiritHealerQueue.HealerGuid);
+    if (!unit)
+        return;
+
+    if (!unit->IsSpiritService()) // it's not spirit service
+        return;
+
+    if (Battleground* battleground = _player->GetBattleground())
+        battleground->AddPlayerToResurrectQueue(areaSpiritHealerQueue.HealerGuid, _player->GetGUID());
+    else if (Battlefield* battlefield = sBattlefieldMgr->GetBattlefield(_player->GetZoneId()))
+        battlefield->HandleAddPlayerToResurrectionQueue(_player, areaSpiritHealerQueue.HealerGuid);
+}
+
+void WorldSession::HandleHearthAndResurrect(WorldPackets::Battleground::HearthAndResurrect& hearthAndResurrect)
+{
+    if (_player->IsInFlight())
+        return;
+
+    if (Battlefield* battlefield = sBattlefieldMgr->GetBattlefield(_player->GetZoneId()))
+    {
+        // TODO
+        return;
+    }
+
+    AreaTableEntry const* atEntry = sAreaTableStore.LookupEntry(_player->GetAreaId());
+    if (!atEntry || !(atEntry->flags & AREA_FLAG_WINTERGRASP_2))
+        return;
+
+    _player->BuildPlayerRepop();
+    _player->ResurrectPlayer(1.0f);
+    _player->TeleportTo(_player->m_homebindMapId, _player->m_homebindX, _player->m_homebindY, _player->m_homebindZ, _player->GetOrientation());
 }
 
 void WorldSession::HandleReclaimCorpse(WorldPackets::Misc::ReclaimCorpse& /*packet*/)
@@ -1326,72 +1377,6 @@ void WorldSession::SendSetPhaseShift(uint32 PhaseShift)
     WorldPacket data(SMSG_SET_PHASE_SHIFT, 4);
     data << uint32(PhaseShift);
     SendPacket(&data);
-}
-// Battlefield and Battleground
-void WorldSession::HandleAreaSpiritHealerQueryOpcode(WorldPacket& recvData)
-{
-    TC_LOG_DEBUG("network", "WORLD: CMSG_AREA_SPIRIT_HEALER_QUERY");
-
-    Battleground* bg = _player->GetBattleground();
-
-    ObjectGuid guid;
-    recvData >> guid;
-
-    Creature* unit = GetPlayer()->GetMap()->GetCreature(guid);
-    if (!unit)
-        return;
-
-    if (!unit->IsSpiritService())                            // it's not spirit service
-        return;
-
-    if (bg)
-        sBattlegroundMgr->SendAreaSpiritHealerQueryOpcode(_player, bg, guid);
-
-    if (Battlefield* bf = sBattlefieldMgr->GetBattlefieldToZoneId(_player->GetZoneId()))
-        bf->SendAreaSpiritHealerQueryOpcode(_player, guid);
-}
-
-void WorldSession::HandleAreaSpiritHealerQueueOpcode(WorldPacket& recvData)
-{
-    TC_LOG_DEBUG("network", "WORLD: CMSG_AREA_SPIRIT_HEALER_QUEUE");
-
-    Battleground* bg = _player->GetBattleground();
-
-    ObjectGuid guid;
-    recvData >> guid;
-
-    Creature* unit = GetPlayer()->GetMap()->GetCreature(guid);
-    if (!unit)
-        return;
-
-    if (!unit->IsSpiritService())                            // it's not spirit service
-        return;
-
-    if (bg)
-        bg->AddPlayerToResurrectQueue(guid, _player->GetGUID());
-
-    if (Battlefield* bf = sBattlefieldMgr->GetBattlefieldToZoneId(_player->GetZoneId()))
-        bf->AddPlayerToResurrectQueue(guid, _player->GetGUID());
-}
-
-void WorldSession::HandleHearthAndResurrect(WorldPacket& /*recvData*/)
-{
-    if (_player->IsInFlight())
-        return;
-
-    if (Battlefield* bf = sBattlefieldMgr->GetBattlefieldToZoneId(_player->GetZoneId()))
-    {
-        bf->PlayerAskToLeave(_player);
-        return;
-    }
-
-    AreaTableEntry const* atEntry = sAreaTableStore.LookupEntry(_player->GetAreaId());
-    if (!atEntry || !(atEntry->Flags & AREA_FLAG_WINTERGRASP_2))
-        return;
-
-    _player->BuildPlayerRepop();
-    _player->ResurrectPlayer(1.0f);
-    _player->TeleportTo(_player->m_homebindMapId, _player->m_homebindX, _player->m_homebindY, _player->m_homebindZ, _player->GetOrientation());
 }
 
 void WorldSession::HandleInstanceLockResponse(WorldPacket& recvPacket)

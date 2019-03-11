@@ -93,6 +93,14 @@ namespace WorldPackets
         class BattlefieldMgrQueueInviteResponse;
         class BattlefieldMgrExitRequest;
     }
+
+    namespace Battleground
+    {
+        class AreaSpiritHealerQuery;
+        class AreaSpiritHealerQueue;
+        class HearthAndResurrect;
+    }
+
     namespace Calendar
     {
         class CalendarAddEvent;
