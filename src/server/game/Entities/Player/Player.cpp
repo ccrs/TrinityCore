@@ -4931,12 +4931,12 @@ void Player::RepopAtGraveyard()
     // stop countdown until repop
     m_deathTimer = 0;
 
-    // if no grave found, stay at the current location
+    // if no grave is found, stay at the current location
     // and don't show spirit healer location
     if (ClosestGraveyard)
     {
         TeleportTo(ClosestGraveyard->Continent, ClosestGraveyard->Loc.x, ClosestGraveyard->Loc.y, ClosestGraveyard->Loc.z, GetOrientation(), shouldResurrect ? TELE_REVIVE_AT_TELEPORT : 0);
-        if (isDead()) // not send if alive, because it used in TeleportTo()
+        if (isDead()) // don't send if alive, it's used in TeleportTo()
         {
             WorldPackets::Misc::DeathReleaseLoc packet;
             packet.MapID = ClosestGraveyard->Continent;
