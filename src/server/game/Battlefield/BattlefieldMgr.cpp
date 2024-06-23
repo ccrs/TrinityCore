@@ -55,7 +55,7 @@ void BattlefieldMgr::Initialize()
             }
 
             uint32 scriptId = sObjectMgr->GetScriptId(fields[1].GetString());
-            std::unique_ptr <Battlefield> newBattlefield = std::make_unique<Battlefield>(sScriptMgr->CreateBattlefield(scriptId));
+            std::unique_ptr<Battlefield> newBattlefield(sScriptMgr->CreateBattlefield(scriptId));
             if (!newBattlefield)
                 continue;
 
