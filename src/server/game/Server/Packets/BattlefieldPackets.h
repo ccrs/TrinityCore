@@ -18,12 +18,92 @@
 #ifndef BattlefieldPackets_h__
 #define BattlefieldPackets_h__
 
+#include "LFGPacketsCommon.h"
 #include "Packet.h"
+#include "ObjectGuid.h"
 
 namespace WorldPackets
 {
     namespace Battlefield
     {
+        class BattlefieldListRequest final : public ClientPacket
+        {
+        public:
+            BattlefieldListRequest(WorldPacket&& packet) : ClientPacket(CMSG_BATTLEFIELD_LIST, std::move(packet)) { }
+
+            void Read() override;
+
+            uint8 BGType = 0;
+            bool FromUI = false;
+            int32 ListID = 0;
+        };
+
+        class BattlefieldList final : public ServerPacket
+        {
+        public:
+            BattlefieldList() : ServerPacket(SMSG_BATTLEFIELD_LIST, 16 + 1 + 1 + 1 + 1 + 1 + 4 + 4 + 1 + 1 + 4 + 4 + 4 + 4) { }
+
+            WorldPacket const* Write() override;
+
+            ObjectGuid BattlemasterGuid;
+            bool FromUI = false;
+            uint8 BGType = 0;
+            uint8 MinLevel = 0;
+            uint8 MaxLevel = 0;
+            bool HasWinToday = false;
+            uint32 WinnerHonorReward = 0;
+            uint32 WinnerArenaReward = 0;
+            bool IsRandom = false;
+            bool HasRandomWinToday = false;
+            uint32 RandomWinnerHonorReward = 0;
+            uint32 RandomWinnerArenaReward = 0;
+            uint32 RandomLoserHonorReward = 0;
+            uint32 BattlefielddInstanceCount = 0;
+            std::vector<uint32> BattlefielInstanceIDs;
+        };
+
+        class BattlefieldStatus final : public ServerPacket
+        {
+        public:
+            BattlefieldStatus() : ServerPacket(SMSG_BATTLEFIELD_STATUS, 8 + sizeof(Ticket) + 1 + 1 + 4 + 1 + 1 + 2 + 16 + 4 + 4 + 1) { }
+
+            WorldPacket const* Write() override;
+
+            uint64 QueueID = 0;
+            WorldPackets::LFG::RideTicket Ticket;
+            uint8 RangeMin = 0;
+            uint8 RangeMax = 0;
+            uint32 InstanceID = 0;
+            bool RegisteredMatch = false;
+            uint8 BattleStatus = 0;
+            uint16 MapId = 0;
+            ObjectGuid ClientID;
+            uint32 InstanceExpiration = 0;
+            uint32 InstanceStartTime = 0;
+            uint8 Team = 0;
+        };
+
+        class BattlefieldPort final : public ClientPacket
+        {
+        public:
+            BattlefieldPort(WorldPacket&& packet) : ClientPacket(CMSG_BATTLEFIELD_PORT, std::move(packet)) { }
+
+            void Read() override;
+
+            WorldPackets::LFG::RideTicket Ticket;
+            bool AcceptedInvite = false;
+        };
+
+        class BattlefieldLeave final : public ClientPacket
+        {
+        public:
+            BattlefieldLeave(WorldPacket&& packet) : ClientPacket(CMSG_LEAVE_BATTLEFIELD, std::move(packet)) { }
+
+            void Read() override { }
+
+            WorldPackets::LFG::RideTicket Ticket;
+        };
+
         class BattlefieldMgrEntryInvite final : public ServerPacket
         {
         public:
@@ -45,6 +125,19 @@ namespace WorldPackets
 
             uint32 BattleID = 0;
             bool AcceptedInvite = false;
+        };
+
+        class BattlefieldMgrEntered final : public ServerPacket
+        {
+        public:
+            BattlefieldMgrEntered() : ServerPacket(SMSG_BATTLEFIELD_MGR_ENTERED, 4 + 1 + 1 + 1) { }
+
+            WorldPacket const* Write() override;
+
+            uint32 BattleID = 0;
+            bool OnOffense = false;
+            bool Relocated = false;
+            bool ClearedAFK = false;
         };
 
         class BattlefieldMgrQueueInvite final : public ServerPacket
@@ -83,27 +176,15 @@ namespace WorldPackets
             uint8 Warmup = 0;
         };
 
-        class BattlefieldMgrExitRequest final : public ClientPacket
+        class BattlefieldMgrEjectPending final : public ServerPacket
         {
         public:
-            BattlefieldMgrExitRequest(WorldPacket&& packet) : ClientPacket(CMSG_BATTLEFIELD_MGR_EXIT_REQUEST, std::move(packet)) { }
-
-            void Read() override;
-
-            uint32 BattleID = 0;
-        };
-
-        class BattlefieldMgrEntered final : public ServerPacket
-        {
-        public:
-            BattlefieldMgrEntered() : ServerPacket(SMSG_BATTLEFIELD_MGR_ENTERED, 4 + 1 + 1 + 1) { }
+            BattlefieldMgrEjectPending() : ServerPacket(SMSG_BATTLEFIELD_MGR_EJECT_PENDING, 1 + sizeof(Ticket)) { }
 
             WorldPacket const* Write() override;
 
-            uint32 BattleID = 0;
-            bool OnOffense = false;
-            bool Relocated = false;
-            bool ClearedAFK = false;
+            bool Remove = false;
+            WorldPackets::LFG::RideTicket Ticket;
         };
 
         class BattlefieldMgrEjected final : public ServerPacket
@@ -119,15 +200,25 @@ namespace WorldPackets
             bool Relocated = false;
         };
 
-        class BattlefieldMgrEjectPending final : public ServerPacket
+        class BattlefieldMgrExitRequest final : public ClientPacket
         {
         public:
-            BattlefieldMgrEjectPending() : ServerPacket(SMSG_BATTLEFIELD_MGR_EJECT_PENDING, 4 + 1) { }
+            BattlefieldMgrExitRequest(WorldPacket&& packet) : ClientPacket(CMSG_BATTLEFIELD_MGR_EXIT_REQUEST, std::move(packet)) { }
+
+            void Read() override;
+
+            uint32 BattleID = 0;
+        };
+
+        class BattlefieldMgrStateChange final : public ServerPacket
+        {
+        public:
+            BattlefieldMgrStateChange() : ServerPacket(SMSG_BATTLEFIELD_MGR_STATE_CHANGE, 1 + 1) { }
 
             WorldPacket const* Write() override;
 
-            uint32 BattleID = 0;
-            bool Remove = false;
+            uint8 OldStatus = 0;
+            uint8 NewStatus = 0;
         };
     }
 }

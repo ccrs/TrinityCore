@@ -17,6 +17,58 @@
 
 #include "BattlefieldPackets.h"
 
+void WorldPackets::Battlefield::BattlefieldListRequest::Read()
+{
+    _worldPacket >> BGType;
+    _worldPacket >> FromUI;
+    _worldPacket >> ListID;
+}
+
+WorldPacket const* WorldPackets::Battlefield::BattlefieldList::Write()
+{
+    _worldPacket << BattlemasterGuid;
+    _worldPacket << FromUI;
+    _worldPacket << uint8(BGType);
+    _worldPacket << uint8(MinLevel);
+    _worldPacket << uint8(MaxLevel);
+    _worldPacket << HasWinToday;
+    _worldPacket << uint32(WinnerHonorReward);
+    _worldPacket << uint32(WinnerArenaReward);
+    _worldPacket << IsRandom;
+    _worldPacket << HasRandomWinToday;
+    _worldPacket << uint32(RandomWinnerHonorReward);
+    _worldPacket << uint32(RandomWinnerArenaReward);
+    _worldPacket << uint32(RandomLoserHonorReward);
+    _worldPacket << uint32(BattlefielddInstanceCount);
+    if (!BattlefielInstanceIDs.empty())
+        _worldPacket.append(BattlefielInstanceIDs.data(), BattlefielInstanceIDs.size());
+
+    return &_worldPacket;
+}
+
+WorldPacket const* WorldPackets::Battlefield::BattlefieldStatus::Write()
+{
+    _worldPacket << uint64(QueueID);
+    _worldPacket << Ticket;
+    _worldPacket << uint8(RangeMin);
+    _worldPacket << uint8(RangeMax);
+    _worldPacket << uint32(InstanceID);
+    _worldPacket << RegisteredMatch;
+    _worldPacket << uint8(BattleStatus);
+    _worldPacket << uint16(MapId);
+    _worldPacket << ClientID;
+    _worldPacket << uint32(InstanceExpiration);
+    _worldPacket << uint32(InstanceStartTime);
+    _worldPacket << uint8(Team);
+    return &_worldPacket;
+}
+
+void WorldPackets::Battlefield::BattlefieldPort::Read()
+{
+    _worldPacket >> Ticket;
+    _worldPacket >> AcceptedInvite;
+}
+
 WorldPacket const* WorldPackets::Battlefield::BattlefieldMgrEntryInvite::Write()
 {
     _worldPacket << uint32(BattleID);
@@ -28,7 +80,16 @@ WorldPacket const* WorldPackets::Battlefield::BattlefieldMgrEntryInvite::Write()
 void WorldPackets::Battlefield::BattlefieldMgrEntryInviteResponse::Read()
 {
     _worldPacket >> BattleID;
-    AcceptedInvite = _worldPacket.read<uint8>() != 0;
+    _worldPacket >> AcceptedInvite;
+}
+
+WorldPacket const* WorldPackets::Battlefield::BattlefieldMgrEntered::Write()
+{
+    _worldPacket << uint32(BattleID);
+    _worldPacket << OnOffense;
+    _worldPacket << Relocated;
+    _worldPacket << ClearedAFK;
+    return &_worldPacket;
 }
 
 WorldPacket const* WorldPackets::Battlefield::BattlefieldMgrQueueInvite::Write()
@@ -41,7 +102,7 @@ WorldPacket const* WorldPackets::Battlefield::BattlefieldMgrQueueInvite::Write()
 void WorldPackets::Battlefield::BattlefieldMgrQueueInviteResponse::Read()
 {
     _worldPacket >> BattleID;
-    AcceptedInvite = _worldPacket.read<uint8>() != 0;
+    _worldPacket >> AcceptedInvite;
 }
 
 WorldPacket const* WorldPackets::Battlefield::BattlefieldMgrQueueRequestResponse::Write()
@@ -49,22 +110,15 @@ WorldPacket const* WorldPackets::Battlefield::BattlefieldMgrQueueRequestResponse
     _worldPacket << uint32(BattleID);
     _worldPacket << uint32(ZoneID);
     _worldPacket << int8(Accepted);
-    _worldPacket << uint8(LoggingIn);
+    _worldPacket << LoggingIn;
     _worldPacket << uint8(Warmup);
     return &_worldPacket;
 }
 
-void WorldPackets::Battlefield::BattlefieldMgrExitRequest::Read()
+WorldPacket const* WorldPackets::Battlefield::BattlefieldMgrEjectPending::Write()
 {
-    _worldPacket >> BattleID;
-}
-
-WorldPacket const* WorldPackets::Battlefield::BattlefieldMgrEntered::Write()
-{
-    _worldPacket << uint32(BattleID);
-    _worldPacket << uint8(OnOffense);
-    _worldPacket << uint8(Relocated);
-    _worldPacket << uint8(ClearedAFK);
+    _worldPacket << Remove;
+    _worldPacket << Ticket;
     return &_worldPacket;
 }
 
@@ -73,13 +127,18 @@ WorldPacket const* WorldPackets::Battlefield::BattlefieldMgrEjected::Write()
     _worldPacket << uint32(BattleID);
     _worldPacket << int8(Reason);
     _worldPacket << int8(BattleStatus);
-    _worldPacket << uint8(Relocated);
+    _worldPacket << Relocated;
     return &_worldPacket;
 }
 
-WorldPacket const* WorldPackets::Battlefield::BattlefieldMgrEjectPending::Write()
+void WorldPackets::Battlefield::BattlefieldMgrExitRequest::Read()
 {
-    _worldPacket << uint32(BattleID);
-    _worldPacket << uint8(Remove);
+    _worldPacket >> BattleID;
+}
+
+WorldPacket const* WorldPackets::Battlefield::BattlefieldMgrStateChange::Write()
+{
+    _worldPacket << uint8(OldStatus);
+    _worldPacket << uint8(NewStatus);
     return &_worldPacket;
 }
