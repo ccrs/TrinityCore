@@ -18,7 +18,7 @@
 #include "ScriptMgr.h"
 #include "Battlefield.h"
 #include "BattlefieldMgr.h"
-#include "BattlefieldWG.h"
+#include "Battlefield/BattlefieldWG.h"
 #include "ConditionMgr.h"
 #include "Creature.h"
 #include "DBCStructure.h"
@@ -133,7 +133,7 @@ struct npc_wg_demolisher_engineer : public ScriptedAI
     {
     }
 
-    bool GossipHello(Player* player) override
+    bool OnGossipHello(Player* player) override
     {
         if (CanBuild())
         {
@@ -162,7 +162,7 @@ struct npc_wg_demolisher_engineer : public ScriptedAI
         return true;
     }
 
-    bool GossipSelect(Player* player, uint32 /*menuId*/, uint32 gossipListId) override
+    bool OnGossipSelect(Player* player, uint32 /*menuId*/, uint32 gossipListId) override
     {
         uint32 const action = player->PlayerTalkClass->GetGossipOptionAction(gossipListId);
         CloseGossipMenuFor(player);
@@ -373,7 +373,7 @@ class spell_wintergrasp_tenacity_refresh : public AuraScript
 
     bool Validate(SpellInfo const* spellInfo) override
     {
-        uint32 triggeredSpellId = spellInfo->Effects[EFFECT_2].CalcValue();
+        uint32 triggeredSpellId = spellInfo->GetEffect(EFFECT_2).CalcValue();
         return !triggeredSpellId || ValidateSpellInfo({ triggeredSpellId });
     }
 
@@ -381,7 +381,7 @@ class spell_wintergrasp_tenacity_refresh : public AuraScript
     {
         PreventDefaultAction();
 
-        if (uint32 triggeredSpellId = GetSpellInfo()->Effects[aurEff->GetEffIndex()].CalcValue())
+        if (uint32 triggeredSpellId = GetSpellInfo()->GetEffect(aurEff->GetEffIndex()).CalcValue())
         {
             int32 bp = 0;
             if (AuraEffect const* healEffect = GetEffect(EFFECT_0))
@@ -399,7 +399,7 @@ class spell_wintergrasp_tenacity_refresh : public AuraScript
 
     void OnRemove(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
     {
-        if (uint32 triggeredSpellId = GetSpellInfo()->Effects[aurEff->GetEffIndex()].CalcValue())
+        if (uint32 triggeredSpellId = GetSpellInfo()->GetEffect(aurEff->GetEffIndex()).CalcValue())
             GetTarget()->RemoveAurasDueToSpell(triggeredSpellId);
     }
 
@@ -453,7 +453,7 @@ class achievement_wg_didnt_stand_a_chance : public AchievementCriteriaScript
                     return false;
 
                 if (Vehicle* vehicle = source->GetVehicle())
-                    if (vehicle->GetVehicleInfo()->m_ID == 244) // Wintergrasp Tower Cannon
+                    if (vehicle->GetVehicleInfo()->ID == 244) // Wintergrasp Tower Cannon
                         return true;
             }
 
@@ -497,8 +497,8 @@ void AddSC_wintergrasp()
     RegisterSpellScript(spell_wintergrasp_grab_passenger);
     RegisterSpellScript(spell_wintergrasp_defender_teleport);
     RegisterSpellScript(spell_wintergrasp_defender_teleport_trigger);
-    RegisterAuraScript(spell_wintergrasp_tenacity_refresh);
-    RegisterAuraScript(spell_wintergrasp_waiting_to_resurrect);
+    RegisterSpellScript(spell_wintergrasp_tenacity_refresh);
+    RegisterSpellScript(spell_wintergrasp_waiting_to_resurrect);
     new achievement_wg_didnt_stand_a_chance();
     new condition_is_wintergrasp_horde();
     new condition_is_wintergrasp_alliance();

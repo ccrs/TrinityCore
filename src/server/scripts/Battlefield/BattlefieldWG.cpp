@@ -81,6 +81,12 @@ BattlefieldWintergrasp::~BattlefieldWintergrasp()
 {
 }
 
+bool BattlefieldWintergrasp::Initialize()
+{
+    _enabled = /*sWorld->getBoolConfig(CONFIG_WINTERGRASP_ENABLE)*/false;
+    return false;
+}
+
 void BattlefieldWintergrasp::OnCreatureCreate(Creature* object)
 {
     switch (object->GetEntry())

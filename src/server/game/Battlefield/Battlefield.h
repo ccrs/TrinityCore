@@ -49,7 +49,7 @@ public:
     virtual ~Battlefield();
 
     // Called on battlefield creation
-    virtual bool Initialize(bool enabled);
+    virtual bool Initialize();
     virtual void Update(uint32 diff);
 
     // Called when a player enters the battlefield zone
@@ -96,6 +96,9 @@ public:
     bool IsEnabled() const { return _enabled; }
     bool IsWarTime() const { return _active; }
 
+protected:
+    bool _enabled;
+
 private:
     Battlefield(Battlefield const&) = delete;
     Battlefield& operator=(Battlefield const&) = delete;
@@ -104,7 +107,6 @@ private:
     BattlefieldBattleId _battleId;
     uint32 _zoneId;
 
-    bool _enabled;
     bool _active;
     PvPTeamId _controllingTeam;
     CountdownTimer _timer;

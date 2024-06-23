@@ -20,6 +20,7 @@
 
 #include "Battlefield.h"
 #include "BattlefieldEntities.h"
+#include "ScriptMgr.h"
 #include <memory>
 #include <unordered_map>
 
@@ -287,6 +288,7 @@ public:
     explicit BattlefieldWintergrasp();
     ~BattlefieldWintergrasp();
 
+    bool Initialize() override;
     void OnCreatureCreate(Creature* object) override;
     void OnCreatureRemove(Creature* object) override;
     void OnGameObjectCreate(GameObject* object) override;
@@ -310,5 +312,20 @@ private:
 
     WintergraspBuildingContainer _buildings;
 };
+
+class BattlefieldWintergraspScript : public BattlefieldScript
+{
+public:
+    BattlefieldWintergraspScript() : BattlefieldScript("battlefield_wg") { }
+
+    Battlefield* GetBattlefield() const override
+    {
+        return new BattlefieldWintergrasp();
+    }
+};
+
+void AddSCBattlefieldWintergraspScript() {
+    new BattlefieldWintergraspScript();
+}
 
 #endif
