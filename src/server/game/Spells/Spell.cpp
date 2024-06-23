@@ -6081,7 +6081,7 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
                     }
                     if (AreaTableEntry const* area = sAreaTableStore.LookupEntry(m_originalCaster->GetAreaId()))
                     {
-                        if (area->flags & AREA_FLAG_NO_FLY_ZONE)
+                        if (area->Flags & AREA_FLAG_NO_FLY_ZONE)
                             return SPELL_FAILED_NOT_HERE;
                     }
                 }

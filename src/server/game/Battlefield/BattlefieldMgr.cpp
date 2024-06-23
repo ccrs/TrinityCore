@@ -48,7 +48,7 @@ void BattlefieldMgr::Initialize()
         {
             Field* fields = result->Fetch();
             uint32 typeId = fields[0].GetUInt8();
-            if (typeId >= BATTLEFIELD_MAX)
+            if (typeId >= BATTLEFIELD_BATTLEID_MAX)
             {
                 TC_LOG_ERROR("sql.sql", "BattlefieldMgr::InitBattlefield: Invalid TypeId value {} in battlefield_template, skipped.", typeId);
                 continue;

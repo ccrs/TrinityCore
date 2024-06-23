@@ -730,7 +730,7 @@ bool SpellArea::IsFitToRequirements(Player const* player, uint32 newZone, uint32
 
             if (AreaTableEntry const* currentAreaTableEntry = sAreaTableStore.LookupEntry(player->GetAreaId()))
             {
-                if (!(currentAreaTableEntry->flags & AREA_FLAG_NO_FLY_ZONE))
+                if (!(currentAreaTableEntry->Flags & AREA_FLAG_NO_FLY_ZONE))
                     return false;
             }
 
