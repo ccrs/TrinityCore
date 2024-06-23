@@ -170,7 +170,7 @@ struct npc_wg_demolisher_engineer : public ScriptedAI
         if (CanBuild())
         {
             uint32 const selection = action - GOSSIP_ACTION_INFO_DEF;
-            if (selection >= 0 && selection < 3)
+            if (selection < 3)
                 player->CastSpell(player, SPELL_ACTIVATE_CONTROL_ARMS, true);
 
             switch (selection)
