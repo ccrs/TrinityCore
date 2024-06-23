@@ -219,6 +219,7 @@ namespace WorldPackets
         class Hello;
         class TrainerBuySpell;
     }
+
     namespace Pet
     {
         class DismissCritter;
