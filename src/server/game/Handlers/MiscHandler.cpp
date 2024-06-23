@@ -1368,7 +1368,7 @@ void WorldSession::HandleHearthAndResurrect(WorldPackets::Battleground::HearthAn
     if (!atEntry || !(atEntry->Flags & AREA_FLAG_CAN_HEARTH_AND_RESURRECT))
         return;
 
-    if (Battlefield* battlefield = sBattlefieldMgr->GetBattlefield(_player->GetZoneId()))
+    if (/*Battlefield* battlefield = */sBattlefieldMgr->GetBattlefield(_player->GetZoneId()))
     {
         // TODO
         return;

@@ -1018,11 +1018,11 @@ class TC_GAME_API WorldSession
         void HandleBattlemasterJoinOpcode(WorldPacket& recvData);
         void HandleBattlegroundPlayerPositionsOpcode(WorldPacket& recvData);
         void HandlePVPLogDataOpcode(WorldPacket& recvData);
-        void HandleBattleFieldPortOpcode(WorldPacket& recvData);
+        void HandleBattlefieldPortOpcode(WorldPacket& recvData);
         void HandleBattlefieldListOpcode(WorldPacket& recvData);
         void HandleBattlefieldLeaveOpcode(WorldPacket& recvData);
         void HandleBattlemasterJoinArena(WorldPacket& recvData);
-        void HandleReportPvPAFK(WorldPacket& recvData);
+        void HandleReportPVPAFK(WorldPacket& recvData);
 
         // Battlefield
         void SendBattlefieldInvitePlayerToWar(BattlefieldBattleId battleId, uint32 zoneId, uint32 time);

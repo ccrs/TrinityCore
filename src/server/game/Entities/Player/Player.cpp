@@ -4935,7 +4935,7 @@ void Player::RepopAtGraveyard()
     // and don't show spirit healer location
     if (ClosestGraveyard)
     {
-        TeleportTo(ClosestGraveyard->Continent, ClosestGraveyard->Loc.x, ClosestGraveyard->Loc.y, ClosestGraveyard->Loc.z, GetOrientation(), shouldResurrect ? TELE_REVIVE_AT_TELEPORT : 0);
+        TeleportTo(ClosestGraveyard->Continent, ClosestGraveyard->Loc.X, ClosestGraveyard->Loc.Y, ClosestGraveyard->Loc.Z, GetOrientation(), shouldResurrect ? TELE_REVIVE_AT_TELEPORT : 0);
         if (isDead()) // don't send if alive, it's used in TeleportTo()
         {
             WorldPackets::Misc::DeathReleaseLoc packet;
@@ -6624,8 +6624,8 @@ void Player::RewardReputation(Quest const* quest)
  */
 void Player::RemovePVPInsignia(Player* looter)
 {
-    // If player is not in battleground and not in battlefield
-    if (!GetBattlegroundId() && !sBattlefieldMgr->GetEnabledBattlefield(GetZoneId()))
+    // If player is not in battleground and not in worldpvpzone
+    if (!GetBattlegroundId() && !IsInWorldPvpZone())
         return;
 
     // If not released spirit, do it !
@@ -6649,7 +6649,7 @@ void Player::RemovePVPInsignia(Player* looter)
 
     // We store the level of our player in the gold field
     // We retrieve this information at Player::SendLoot()
-    bones->loot.gold = getLevel();
+    bones->loot.gold = GetLevel();
     bones->lootRecipient = looter;
     looter->SendLoot(bones->GetGUID(), LOOT_INSIGNIA);
 }
